@@ -2,7 +2,7 @@
 ### A sweet old grandma has had enough of slow sidewalks and nosy neighbors. She takes her mobility scooter on a joyride through town, leaving destruction in her wake.
 
 ## Requirements
-- Node.js 18 or newer (npm ships with Node). Windows users: grab the installer from [nodejs.org](https://nodejs.org), keep the "Add to PATH" option enabled, then reopen PowerShell/Git Bash.
+- Node.js 18 or newer (npm ships with Node). Windows users: grab the installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen PowerShell/Git Bash afterward.
 - Optional: Docker Desktop (Windows/macOS) or Docker Engine (Linux) if you want to run the containerized dev stack.
 - Optional: GNU Make (pre-installed on macOS/Linux; on Windows install via [Chocolatey](https://chocolatey.org/packages/make) `choco install make`, [winget](https://learn.microsoft.com/windows/package-manager/winget/) `winget install GnuWin32.Make`, or the [MSYS2](https://www.msys2.org/) toolchain).
 
@@ -69,3 +69,4 @@ npm test
 ## Quick Troubleshooting (Windows)
 - `'npm' is not recognized'`: Node.js is missing from PATH. Reinstall Node.js, ensure "Automatically install the necessary tools" is unchecked unless you need them, and keep the PATH option enabled. After installation, open a fresh PowerShell/Git Bash window and rerun `node -v`.
 - `'make' is not recognized'`: Install GNU Make (see the Requirements section) or skip the Make targets and use the npm/Docker commands directly.
+- `npm.ps1 cannot be loaded because running scripts is disabled`: PowerShell’s execution policy blocks npm’s shim. Either run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once in an *Administrator* PowerShell window, or call the CMD shim directly (`npm.cmd run dev`). After changing the execution policy, close and reopen PowerShell before retrying `npm -v`.
