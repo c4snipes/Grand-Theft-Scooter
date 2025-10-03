@@ -1,8 +1,14 @@
 # ---- build stage ----
 FROM node:20 AS build
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+# Copy manifest(s) first for better layer caching
+COPY package.json package-lock.json* ./
+
+# Install deps: use npm ci if lockfile exists, else npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# Bring in the rest of the app and build
 COPY . .
 RUN npm run build
 
