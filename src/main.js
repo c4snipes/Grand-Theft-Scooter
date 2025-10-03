@@ -47,9 +47,15 @@ ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
 const scooterSize = new Vec3(1.2, 0.4, 2.4);
+const scooterHalfExtents = new Vec3(
+  scooterSize.x / 2,
+  scooterSize.y / 2,
+  scooterSize.z / 2,
+);
+
 const scooterBody = new Body({
   mass: 25,
-  shape: new CannonBox(scooterSize.scale(0.5)),
+  shape: new CannonBox(scooterHalfExtents),
   position: new Vec3(0, 1, 0),
   angularDamping: 0.5,
   linearDamping: 0.3,
@@ -78,6 +84,8 @@ const tmpForce = new Vec3();
 const forwardVector = new Vec3(0, 0, -1);
 const cameraOffset = new Vector3(-6, 4, 8);
 const cameraTarget = new Vector3();
+const desiredCamera = new Vector3();
+const tmpOffset = new Vector3();
 const clock = new Clock();
 
 function updatePhysics(delta) {
@@ -104,9 +112,8 @@ function syncGraphics() {
   scooter.quaternion.copy(scooterBody.quaternion);
 
   cameraTarget.copy(scooter.position);
-  const desiredCamera = scooter.position
-    .clone()
-    .add(cameraOffset.clone().applyQuaternion(scooter.quaternion));
+  tmpOffset.copy(cameraOffset).applyQuaternion(scooter.quaternion);
+  desiredCamera.copy(scooter.position).add(tmpOffset);
   camera.position.lerp(desiredCamera, 0.1);
   camera.lookAt(cameraTarget);
 }
