@@ -1,8 +1,8 @@
 node_modules
 dist
 .git
-.gitignore
-Dockerfile
-docker-compose.dev.yml
-nginx.conf
-README.md
+.github
+.DS_Store
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
