@@ -5,6 +5,7 @@ services:
     volumes:
       - ./:/app
       - /app/node_modules
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    command: sh -c "if [ -f package-lock.json ]; then npm ci; else npm i; fi && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
+
