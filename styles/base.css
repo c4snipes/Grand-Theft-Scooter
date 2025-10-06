@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light dark;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, 'Cantarell', 'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  --bg-body: #0b1014;
+  --fg-body: #f4f7fb;
+  --hud-surface: rgba(10, 14, 20, 0.6);
+  --hud-border: rgba(255, 255, 255, 0.08);
+  --hud-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --hud-title: rgba(255, 255, 255, 0.72);
+  --hud-speed: #f9fbff;
+  --hud-text: rgba(238, 242, 247, 0.92);
+  --hud-strong: rgba(255, 255, 255, 0.96);
+  --hud-btn-bg: rgba(255, 255, 255, 0.06);
+  --hud-btn-border: rgba(255, 255, 255, 0.18);
+  --hud-btn-bg-hover: rgba(255, 255, 255, 0.16);
+  --hud-btn-border-hover: rgba(255, 255, 255, 0.32);
+  --hud-alert: rgba(248, 181, 82, 0.9);
+  --hud-blur: 18px;
+  --focus-ring: 0 0 0 3px rgba(109, 161, 255, 0.45);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg-body: #f6f8fd;
+    --fg-body: #1a1d21;
+    --hud-surface: rgba(255, 255, 255, 0.82);
+    --hud-border: rgba(17, 24, 39, 0.12);
+    --hud-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+    --hud-title: rgba(30, 41, 59, 0.72);
+    --hud-speed: #0f172a;
+    --hud-text: rgba(30, 41, 59, 0.88);
+    --hud-strong: #0f172a;
+    --hud-btn-bg: rgba(15, 23, 42, 0.08);
+    --hud-btn-border: rgba(15, 23, 42, 0.12);
+    --hud-btn-bg-hover: rgba(15, 23, 42, 0.14);
+    --hud-btn-border-hover: rgba(15, 23, 42, 0.3);
+    --hud-alert: rgba(202, 138, 4, 0.9);
+    --focus-ring: 0 0 0 3px rgba(56, 142, 255, 0.45);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-body);
+  color: var(--fg-body);
+  min-height: 100vh;
+  overflow: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  outline: none;
+}
+
+button {
+  font: inherit;
+  border: none;
+  background: transparent;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,24 @@
+@media (max-width: 720px) {
+  .hud {
+    padding: 1rem;
+  }
+
+  .hud__panel {
+    width: 100%;
+    padding: 1rem 1.1rem;
+  }
+
+  .hud__speed {
+    font-size: 1.8rem;
+  }
+
+  .hud__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hud__btn {
+    width: 100%;
+    text-align: center;
+  }
+}

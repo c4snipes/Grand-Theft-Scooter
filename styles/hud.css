@@ -1,0 +1,98 @@
+.hud {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hud__panel,
+.hud__footer {
+  pointer-events: auto;
+}
+
+.hud__panel {
+  width: min(320px, 90vw);
+  background: var(--hud-surface);
+  border: 1px solid var(--hud-border);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  backdrop-filter: blur(var(--hud-blur));
+  box-shadow: var(--hud-shadow);
+}
+
+.hud__title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.9rem;
+  margin: 0 0 0.35rem;
+  color: var(--hud-title);
+}
+
+.hud__speed {
+  font-size: 2.25rem;
+  font-weight: 600;
+  margin: 0 0 0.6rem;
+  color: var(--hud-speed);
+}
+
+.hud__speed small {
+  font-size: 0.9rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.hud__controls {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--hud-text);
+}
+
+.hud__controls strong {
+  font-weight: 600;
+  color: var(--hud-strong);
+}
+
+.hud__footer {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: min(420px, 94vw);
+}
+
+.hud__btn {
+  border: 1px solid var(--hud-btn-border);
+  background: var(--hud-btn-bg);
+  color: inherit;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.hud__btn:hover {
+  background: var(--hud-btn-bg-hover);
+  border-color: var(--hud-btn-border-hover);
+  transform: translateY(-1px);
+}
+
+.hud__btn:active {
+  transform: translateY(0);
+}
+
+.hud__alert {
+  font-size: 0.8rem;
+  color: var(--hud-alert);
+  min-height: 1.2rem;
+  flex: 1;
+}
+
+.hud__btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
