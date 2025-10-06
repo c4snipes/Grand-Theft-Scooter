@@ -7,9 +7,12 @@ REGISTRY ?= ghcr.io
 REPO ?= $(REGISTRY)/$(GITHUB_REPOSITORY)
 DC_DEV ?= docker-compose.dev.yml
 
-.PHONY: setup dev build preview clean lint typecheck test docker-build docker-run docker-tag docker-push docker-dev up down
+.PHONY: ensure-deps setup dev build preview clean lint typecheck test docker-build docker-run docker-tag docker-push docker-dev up down
 
-setup:
+ensure-deps:
+	SKIP_NPM_INSTALL=1 ./scripts/ensure-deps.sh
+
+setup: ensure-deps
 	$(PKG) ci
 
 dev:
