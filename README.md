@@ -1,72 +1,93 @@
 # Grand Theft Scooter 🛵
 ### A sweet old grandma has had enough of slow sidewalks and nosy neighbors. She takes her mobility scooter on a joyride through town, leaving destruction in her wake.
 
-## Requirements
-- Node.js 18 or newer (npm ships with Node). Windows users: grab the installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen PowerShell/Git Bash afterward.
+## Prerequisites
+- Node.js 18 or newer (Node 20.x is preferred). npm ships with Node; Windows users can grab the installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen PowerShell/Git Bash afterward.
 - Optional: Docker Desktop (Windows/macOS) or Docker Engine (Linux) if you want to run the containerized dev stack.
 - Optional: GNU Make (pre-installed on macOS/Linux; on Windows install via [Chocolatey](https://chocolatey.org/packages/make) `choco install make`, [winget](https://learn.microsoft.com/windows/package-manager/winget/) `winget install GnuWin32.Make`, or the [MSYS2](https://www.msys2.org/) toolchain).
 
-Verify your setup after installing:
+The helper script `./scripts/ensure-deps.sh` checks your operating system, confirms Node/npm versions, installs Node when possible, and reports whether Docker and Make are available. Run it anytime you want to double-check your environment.
+
+## Step-by-Step Setup
+1. **Confirm tooling is ready**
+   - Run `./scripts/ensure-deps.sh` (or `bash scripts/ensure-deps.sh` on Windows without WSL) to verify Node/npm and optional tools.
+   - Manual check if you prefer:
+     ```sh
+     node -v
+     npm -v
+     ```
+     If either command is "not recognized" on Windows, open a new terminal; if it still fails, reinstall Node.js and ensure the PATH option was selected.
+2. **Install dependencies**
+   ```sh
+   npm ci          # use `npm install` if you have no package-lock.json
+   ```
+3. **Start the dev server**
+   ```sh
+   npm run dev     # Vite serves http://localhost:5173
+   ```
+   Press `Ctrl+C` to stop the dev server when you are done.
+
+## Optional Workflows
+### Use Make Shortcuts
+If GNU Make is installed, the same flow is available through convenience targets:
 ```sh
-node -v
-npm -v
+make help          # show command reference
+make ensure-deps   # runs ensure-deps.sh without installing node_modules
+make setup         # runs ensure-deps + npm ci
+make dev-local     # npm run dev -- --host 0.0.0.0 --port 5173
+make dev           # docker compose -f docker-compose.dev.yml up
+make down          # docker compose -f docker-compose.dev.yml down
+make clean         # rm -rf node_modules dist
 ```
-If either command is "not recognized" on Windows, open a new terminal. If it still fails, reinstall Node.js and ensure the PATH option was selected.
 
-## Local Development (Windows • macOS • Linux)
-Run these commands from a terminal (PowerShell, Command Prompt, or Git Bash on Windows):
-
+### Develop with Docker
+Run the project without installing Node locally:
 ```sh
-npm ci      # use `npm install` if you prefer
-npm run dev
-```
-The dev server comes up at `http://localhost:5173`. Press `Ctrl+C` to stop it.
-
-## Optional Make Targets
-GNU Make shortcuts wrap the same workflow. If you see `'make' is not recognized` on Windows, install make using one of the methods above or stick with the npm/docker commands.
-
-```sh
-make setup   # runs npm ci
-make dev     # runs docker compose -f docker-compose.dev.yml up
-```
-
-## Docker Development Stack
-Docker Desktop (Windows/macOS) or Docker Engine (Linux) can run the project without installing Node locally:
-
-```sh
-docker compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.dev.yml up --build
 # Press Ctrl+C to stop the stack when finished
 docker compose -f docker-compose.dev.yml down
 ```
-Older Docker installations may still use the standalone `docker-compose` binary; swap in `docker-compose` if needed.
+Make wrappers (`make dev`, `make docker-dev`, `make up`, `make down`) are available if Make is installed.
 
-## Command Cheat Sheet
-Every command below works on Windows, macOS, and Linux when run from a terminal or PowerShell:
-
+## Everyday Commands
 ```sh
 # Build artifacts
 npm run build
+# or: make build
 
 # Preview the production build (port 8080)
 npm run preview -- --host 0.0.0.0 --port 8080
+# or: make preview
 
 # Clean workspace artifacts
-# macOS/Linux
-rm -rf node_modules dist
-# Windows PowerShell
-Remove-Item -Recurse -Force node_modules, dist
+rm -rf node_modules dist                   # macOS/Linux
+Remove-Item -Recurse -Force node_modules, dist  # Windows PowerShell
+# or: make clean
 
 # Docker images (after npm run build)
 docker build -t Grand-Theft-Scooter .
 docker run --rm -p 8080:80 Grand-Theft-Scooter
+# or: make docker-build && make docker-run
 
 # Testing & linting (currently stubbed)
 npm run lint
 npm run typecheck
 npm test
+# or: make lint / make typecheck / make test
 ```
 
-## Quick Troubleshooting (Windows)
-- `'npm' is not recognized'`: Node.js is missing from PATH. Reinstall Node.js, ensure "Automatically install the necessary tools" is unchecked unless you need them, and keep the PATH option enabled. After installation, open a fresh PowerShell/Git Bash window and rerun `node -v`.
-- `'make' is not recognized'`: Install GNU Make (see the Requirements section) or skip the Make targets and use the npm/Docker commands directly.
-- `npm.ps1 cannot be loaded because running scripts is disabled`: PowerShell’s execution policy blocks npm’s shim. Either run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once in an *Administrator* PowerShell window, or call the CMD shim directly (`npm.cmd run dev`). After changing the execution policy, close and reopen PowerShell before retrying `npm -v`.
+## Troubleshooting
+### General
+- `npm ci` fails with `Unsupported engine`: check your Node version with `node -v`; rerun `./scripts/ensure-deps.sh` to install a compatible release.
+- `npm run dev` reports `Port 5173 is already in use`: stop other Vite/Node processes or pass `--port <new-port>` to the dev command.
+- Docker errors about `permission denied` on bind mounts: make sure the repo directory is inside your user home and that Docker Desktop/Engine has access to it.
+- `docker compose` command not found: upgrade to a recent Docker release or replace `docker compose` with `docker-compose`.
+
+### Windows
+- `'npm' is not recognized'`: Node.js is missing from PATH. Reinstall Node.js, ensure "Automatically install the necessary tools" is unchecked unless you need them, and keep the PATH option enabled. After installation, open a fresh PowerShell/Git Bash window and rerun `node -v`, or rerun `./scripts/ensure-deps.sh`.
+- `'make' is not recognized'`: Install GNU Make (see the Prerequisites section) or use the npm/Docker commands directly.
+- `npm.ps1 cannot be loaded because running scripts is disabled`: PowerShell’s execution policy is blocking the shim that npm installs. Fix options:
+  1. Open PowerShell **as Administrator**, then run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force`. Close the window, reopen PowerShell normally, and re-run `npm -v`.
+  2. If you cannot change the policy permanently, run `powershell -ExecutionPolicy Bypass` (or `Set-ExecutionPolicy -Scope Process Bypass`) before invoking npm commands in that session.
+  3. As a last resort, skip the PowerShell script entirely by calling the CMD shim (`npm.cmd run dev`, `npx.cmd vite`, etc.).
+  You can inspect current policy settings with `Get-ExecutionPolicy -List`. Corporate machines may have policies locked; in that case stick with option 2 or 3 above.
