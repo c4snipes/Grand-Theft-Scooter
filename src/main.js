@@ -25,7 +25,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scoreEl = document.createElement('div');
 scoreEl.id = 'scoreboard';
-scoreEl.textContent = 'Score: 0';
 Object.assign(scoreEl.style, {
   position: 'fixed',
   top: '20px',
@@ -41,11 +40,77 @@ Object.assign(scoreEl.style, {
   pointerEvents: 'none',
   zIndex: '10',
 });
+
+const scoreTitleEl = document.createElement('div');
+scoreTitleEl.textContent = 'Score';
+Object.assign(scoreTitleEl.style, {
+  fontSize: '12px',
+  opacity: '0.7',
+  letterSpacing: '0.2em',
+  textTransform: 'uppercase',
+  marginBottom: '4px',
+});
+scoreEl.appendChild(scoreTitleEl);
+
+const scoreValueEl = document.createElement('div');
+scoreValueEl.textContent = '0';
+Object.assign(scoreValueEl.style, {
+  fontSize: '28px',
+  fontWeight: '700',
+  letterSpacing: '0.04em',
+});
+scoreEl.appendChild(scoreValueEl);
+
+const scoreTickerEl = document.createElement('div');
+Object.assign(scoreTickerEl.style, {
+  fontSize: '13px',
+  marginTop: '6px',
+  opacity: '0.85',
+  minHeight: '16px',
+});
+scoreTickerEl.style.opacity = '0.4';
+scoreEl.appendChild(scoreTickerEl);
+
 document.body.appendChild(scoreEl);
 
 let score = 0;
 function updateScoreboard() {
-  scoreEl.textContent = `Score: ${score}`;
+  scoreValueEl.textContent = `${score}`;
+}
+
+function pulseScoreboard() {
+  if (typeof scoreEl.animate === 'function') {
+    scoreEl.animate(
+      [
+        { transform: 'scale(1)', filter: 'brightness(1)' },
+        { transform: 'scale(1.08)', filter: 'brightness(1.35)' },
+        { transform: 'scale(1)', filter: 'brightness(1)' },
+      ],
+      { duration: 280, easing: 'ease-out' },
+    );
+  }
+}
+
+let tickerTimeout = null;
+function announceHit(record) {
+  scoreTickerEl.textContent = `+${record.points} ${record.label}`;
+  scoreTickerEl.style.opacity = '1';
+
+  if (typeof scoreTickerEl.animate === 'function') {
+    scoreTickerEl.animate(
+      [
+        { opacity: 0, transform: 'translateY(8px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      { duration: 220, easing: 'ease-out' },
+    );
+  }
+
+  if (tickerTimeout) clearTimeout(tickerTimeout);
+  tickerTimeout = setTimeout(() => {
+    scoreTickerEl.style.opacity = '0.4';
+    scoreTickerEl.textContent = '';
+  }, 2000);
 }
 
 const interactables = [];
@@ -142,8 +207,17 @@ function buildMallDecor() {
   scene.add(decor);
 }
 
-function registerInteractable({ mesh, body, label, points, type, onUpdate }) {
-  const record = { mesh, body, label, points, type, hit: false, onUpdate: onUpdate ?? null };
+function registerInteractable({ mesh, body, label, points, type, onUpdate, respawn }) {
+  const record = {
+    mesh,
+    body,
+    label,
+    points,
+    type,
+    respawn: respawn ?? null,
+    hit: false,
+    onUpdate: onUpdate ?? null,
+  };
   body.userData = record;
   interactables.push(record);
   if (record.onUpdate) {
@@ -214,6 +288,7 @@ function createPlanter(position) {
     label: 'Planter',
     points: 40,
     type: 'prop',
+    respawn: () => createPlanter(findSpawnPosition(4)),
   });
 }
 
@@ -265,6 +340,7 @@ function createBench(position) {
     label: 'Bench',
     points: 55,
     type: 'prop',
+    respawn: () => createBench(findSpawnPosition(5)),
   });
 }
 
@@ -320,6 +396,7 @@ function createFoodCart(position) {
     label: 'Food Cart',
     points: 85,
     type: 'prop',
+    respawn: () => createFoodCart(findSpawnPosition(6)),
   });
 }
 
@@ -339,23 +416,23 @@ function createMallPatron(position) {
   hairMaterial.color = new Color(hairColor);
 
   const legs = new Mesh(new CylinderGeometry(0.22, 0.26, 0.9, 16), legMaterial);
-  legs.position.y = -0.25;
+  legs.position.y = -0.45;
   group.add(legs);
 
   const torso = new Mesh(new CylinderGeometry(0.28, 0.24, 0.9, 16), torsoMaterial);
-  torso.position.y = 0.4;
+  torso.position.y = 0.35;
   group.add(torso);
 
   const neck = new Mesh(new CylinderGeometry(0.1, 0.1, 0.15, 10), propMaterials.humanSkin);
-  neck.position.y = 0.9;
+  neck.position.y = 0.95;
   group.add(neck);
 
   const head = new Mesh(new SphereGeometry(0.22, 18, 14), propMaterials.humanSkin);
-  head.position.y = 1.15;
+  head.position.y = 1.2;
   group.add(head);
 
   const hair = new Mesh(new SphereGeometry(0.24, 18, 14), hairMaterial);
-  hair.position.set(0, 1.18, -0.02);
+  hair.position.set(0, 1.24, -0.02);
   hair.scale.set(1, 0.7, 1);
   group.add(hair);
 
@@ -390,6 +467,7 @@ function createMallPatron(position) {
     label: 'Mall Patron',
     points: 150,
     type: 'human',
+    respawn: () => createMallPatron(findSpawnPosition(5)),
     onUpdate: (delta, record) => {
       record.mesh.rotation.y += delta * 0.1;
       const bounce = Math.sin((performance.now() / 600) + idlePhase) * 0.02;
@@ -424,6 +502,50 @@ function populateMall() {
 
 populateMall();
 
+function cleanupRecord(record) {
+  world.removeBody(record.body);
+  scene.remove(record.mesh);
+
+  const idx = interactables.indexOf(record);
+  if (idx !== -1) {
+    interactables.splice(idx, 1);
+  }
+
+  const dynIdx = dynamicActors.indexOf(record);
+  if (dynIdx !== -1) {
+    dynamicActors.splice(dynIdx, 1);
+  }
+}
+
+function awardPoints(record) {
+  if (record.hit) return;
+  record.hit = true;
+
+  score += record.points;
+  updateScoreboard();
+  pulseScoreboard();
+  announceHit(record);
+
+  const respawn = record.respawn;
+  cleanupRecord(record);
+
+  if (typeof respawn === 'function') {
+    const delay = randomRange(1500, 4200);
+    setTimeout(() => {
+      respawn();
+    }, delay);
+  }
+}
+
+function handleScooterCollision(event) {
+  const targetBody = event.body;
+  if (!targetBody) return;
+  const record = targetBody.userData;
+  if (!record || record.hit) return;
+
+  awardPoints(record);
+}
+
 const scooterSize = new Vec3(1.2, 1.6, 3);
 const scooterHalfExtents = new Vec3(
   scooterSize.x / 2,
@@ -439,6 +561,7 @@ const scooterBody = new Body({
   linearDamping: 0.3,
 });
 world.addBody(scooterBody);
+scooterBody.addEventListener('collide', handleScooterCollision);
 
 function createScooterMesh() {
   const scooterGroup = new Group();
