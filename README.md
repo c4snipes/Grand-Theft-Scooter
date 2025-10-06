@@ -94,6 +94,12 @@ make check          # lint + typecheck + test
 make doctor         # ensure-deps + make check
 ```
 
+## Gameplay Overview
+- **Setting**: A procedurally assembled 3D shopping mall full of kiosks, displays, and crowds to weave through at high speed.
+- **Objective**: Rack up points by colliding with interactive props, food stands, benches, and other environmental objects.
+- **High-Value Targets**: Running over unsuspecting mall-goers yields the biggest score multipliers—just like a mobility-scooter take on *Hungry Shark*.
+- **Risk vs. Reward**: String together combos without wiping out to unlock higher tiers of chaos; missed opportunities or crashes reset your multiplier.
+
 ## Troubleshooting
 ### General
 - `npm ci` fails with `Unsupported engine`: check your Node version with `node -v`; rerun `./scripts/ensure-deps.sh` to install a compatible release.
