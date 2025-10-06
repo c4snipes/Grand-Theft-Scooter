@@ -1,7 +1,10 @@
 # Grand Theft Scooter 🛵
-### A sweet old grandma has had enough of slow sidewalks and nosy neighbors. She takes her mobility scooter on a joyride through town, leaving destruction in her wake.
+### A sweet old grandma has had enough of the mall's slow pace. Time to wreak havoc! 💥
+A high-speed, combo-driven arcade game where you zoom through a bustling shopping mall on a mobility scooter, causing chaos and racking up points by colliding with objects and people.
 
-## Prerequisites
+
+## Prerequisites    
+To set up the project locally, ensure you have the following installed: 
 - Node.js 18 or newer (Node 20.x is preferred). npm ships with Node; Windows users can grab the installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen PowerShell/Git Bash afterward.
 - Optional: Docker Desktop (Windows/macOS) or Docker Engine (Linux) if you want to run the containerized dev stack.
 - Optional: GNU Make (pre-installed on macOS/Linux; on Windows install via [Chocolatey](https://chocolatey.org/packages/make) `choco install make`, [winget](https://learn.microsoft.com/windows/package-manager/winget/) `winget install GnuWin32.Make`, or the [MSYS2](https://www.msys2.org/) toolchain).
@@ -9,7 +12,7 @@
 The helper script `./scripts/ensure-deps.sh` checks your operating system, confirms Node/npm versions, installs Node when possible, and reports whether Docker and Make are available. Run it anytime you want to double-check your environment.
 
 ## Step-by-Step Setup
-1. **Confirm tooling is ready**
+1. **Confirm tooling is ready** 
    - Run `./scripts/ensure-deps.sh` (or `bash scripts/ensure-deps.sh` on Windows without WSL) to verify Node/npm and optional tools.
    - Manual check if you prefer:
      ```sh
