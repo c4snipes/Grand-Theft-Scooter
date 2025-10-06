@@ -35,7 +35,13 @@ make help          # show command reference
 make ensure-deps   # runs ensure-deps.sh without installing node_modules
 make setup         # runs ensure-deps + npm ci
 make dev-local     # npm run dev -- --host 0.0.0.0 --port 5173
+make check         # npm run lint/typecheck/test
+make doctor        # ensure-deps + check
 make dev           # docker compose -f docker-compose.dev.yml up
+make docker-dev    # docker compose -f docker-compose.dev.yml up --build
+make docker-logs   # docker compose logs -f
+make docker-shell  # docker compose exec web sh
+make up            # docker compose up -d
 make down          # docker compose -f docker-compose.dev.yml down
 make clean         # rm -rf node_modules dist
 ```
@@ -47,7 +53,9 @@ docker compose -f docker-compose.dev.yml up --build
 # Press Ctrl+C to stop the stack when finished
 docker compose -f docker-compose.dev.yml down
 ```
-Make wrappers (`make dev`, `make docker-dev`, `make up`, `make down`) are available if Make is installed.
+Make wrappers (`make dev`, `make docker-dev`, `make up`, `make down`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
+
+> **Can’t run Docker?** No problem. Everything works with the local Node workflow (`npm ci`, `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a container for consistent environments. Only worry about Docker if your team uses it for deployment or you need parity with CI.
 
 ## Everyday Commands
 ```sh
@@ -74,6 +82,10 @@ npm run lint
 npm run typecheck
 npm test
 # or: make lint / make typecheck / make test
+
+# All checks at once
+make check          # lint + typecheck + test
+make doctor         # ensure-deps + make check
 ```
 
 ## Troubleshooting

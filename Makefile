@@ -7,13 +7,14 @@ IMAGE ?= grand-theft-scooter
 REGISTRY ?= ghcr.io
 REPO ?= $(REGISTRY)/$(GITHUB_REPOSITORY)
 DC_DEV ?= docker-compose.dev.yml
+SERVICE ?= web
 DOCKER_COMPOSE ?= docker compose -f $(DC_DEV)
 DEV_FLAGS ?= --host $(HOST) --port $(PORT)
 PREVIEW_FLAGS ?= --host $(HOST) --port $(PREVIEW_PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help ensure-deps setup dev-local dev build preview clean lint typecheck test docker-build docker-run docker-tag docker-push docker-dev up down
+.PHONY: help ensure-deps setup dev-local dev build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down
 
 help:
 	@printf 'Usage: make <target>\n\n'
@@ -23,7 +24,9 @@ help:
 	@printf '  make dev-local     Run Vite dev server on $(HOST):$(PORT)\n'
 	@printf '  make preview       Preview production build on $(HOST):$(PREVIEW_PORT)\n'
 	@printf '  make build         Build production assets\n'
-	@printf '  make clean         Remove node_modules and dist\n\n'
+	@printf '  make clean         Remove node_modules and dist\n'
+	@printf '  make check         Run lint, typecheck, and tests\n'
+	@printf '  make doctor        Run ensure-deps followed by check\n\n'
 	@printf 'Docker workflow:\n'
 	@printf '  make dev           Start docker-compose dev stack (foreground)\n'
 	@printf '  make docker-dev    Start docker-compose dev stack with --build\n'
@@ -33,6 +36,8 @@ help:
 	@printf '  make docker-run    Run production image on port 8080\n'
 	@printf '  make docker-tag    Tag image for registry push\n'
 	@printf '  make docker-push   Push tagged image to $(REPO)\n'
+	@printf '  make docker-logs   Tail docker-compose logs\n'
+	@printf '  make docker-shell  Open a shell inside the $(SERVICE) container\n'
 
 ensure-deps:
 	SKIP_NPM_INSTALL=1 ./scripts/ensure-deps.sh
@@ -64,6 +69,10 @@ typecheck:
 test:
 	$(PKG) test --if-present
 
+check: lint typecheck test
+
+doctor: ensure-deps check
+
 docker-build:
 	docker build -t $(IMAGE) .
 
@@ -78,6 +87,12 @@ docker-push:
 
 docker-dev:
 	$(DOCKER_COMPOSE) up --build
+
+docker-logs:
+	$(DOCKER_COMPOSE) logs -f
+
+docker-shell:
+	$(DOCKER_COMPOSE) exec $(SERVICE) sh
 
 up:
 	$(DOCKER_COMPOSE) up -d
