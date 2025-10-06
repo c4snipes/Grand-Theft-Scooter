@@ -1,7 +1,7 @@
 # Built things
 _Debug/
 Compiled/
-
+node_modules
 # AudioCache can be rebuilt from sources
 AudioCache/
 
