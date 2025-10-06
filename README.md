@@ -35,6 +35,8 @@ make help          # show command reference
 make ensure-deps   # runs ensure-deps.sh without installing node_modules
 make setup         # runs ensure-deps + npm ci
 make dev-local     # npm run dev -- --host 0.0.0.0 --port 5173
+make build         # npm run build
+make preview       # npm run preview -- --host 0.0.0.0 --port 8080
 make check         # npm run lint/typecheck/test
 make doctor        # ensure-deps + check
 make dev           # docker compose -f docker-compose.dev.yml up
@@ -44,6 +46,10 @@ make docker-shell  # docker compose exec web sh
 make up            # docker compose up -d
 make down          # docker compose -f docker-compose.dev.yml down
 make clean         # rm -rf node_modules dist
+make docker-build  # docker build -t grand-theft-scooter .
+make docker-run    # docker run --rm -p 8080:80 grand-theft-scooter
+make docker-tag    # tag image with $(REPO):latest (requires env)
+make docker-push   # push tagged image to $(REPO)
 ```
 
 ### Develop with Docker
