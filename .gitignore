@@ -29,3 +29,54 @@ game28.dta
 
 # Log files
 warnings.log
+
+# Node / package outputs
+node_modules/
+dist/
+build/
+/.output/
+
+# Vite / cache / test
+.vite/
+.vitepress/
+.cache/
+.turbo/
+.parcel-cache/
+.turbo/
+.vitest/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Env
+.env
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Yarn PnP
+.pnp/
+.pnp.js
+
+# Coverage
+coverage/
+
+# Binary / build artifacts
+*.exe
