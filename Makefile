@@ -1,11 +1,10 @@
 SHELL := /bin/sh
 PKG ?= npm
 PORT ?= 5173
-PREVIEW_PORT ?= 8080
 HOST ?= 0.0.0.0
 IMAGE ?= grand-theft-scooter
 REGISTRY ?= ghcr.io
-REPO ?= $(REGISTRY)/$(GITHUB_REPOSITORY)
+REPO ?= $(REGISTRY)/c4snipes/grand-theft-scooter
 DC_DEV ?= docker-compose.dev.yml
 SERVICE ?= web
 DOCKER_COMPOSE ?= docker compose -f $(DC_DEV)
@@ -51,10 +50,6 @@ ensure-deps:
 
 setup: ensure-deps
 	$(PKG) ci
-	$(PKG) run build
-	$(PKG) run lint
-	$(PKG) run typecheck
-	$(PKG) test --if-present
 
 
 dev-local:
@@ -71,9 +66,6 @@ dev:
 
 build:
 	$(PKG) run build
-
-preview:
-	$(PKG) run preview -- $(PREVIEW_FLAGS)
 
 
 clean:
@@ -99,13 +91,7 @@ check: lint typecheck test
 
 
 assets:
-	@test -f public/assets/mall_kiosk.gltf
-	@test -f public/assets/mall_floor_tile.gltf
-	@test -f public/assets/mall_floor.png
-	@test -f public/assets/mall_column.gltf
-	@test -f public/assets/mall_banner.gltf
-	@test -f public/assets/mall_banner.png
-	@printf 'Mall assets located in public/assets/ are ready.\\n'
+	@python3 scripts/check_assets.py
 
 docker-build:
 	docker build -t $(IMAGE) .
