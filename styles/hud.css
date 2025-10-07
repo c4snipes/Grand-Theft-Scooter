@@ -96,3 +96,82 @@
 .hud__btn:focus-visible {
   box-shadow: var(--focus-ring);
 }
+
+.hud__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hud__hazard {
+  margin-top: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid rgba(249, 115, 22, 0.85);
+  border-radius: 6px;
+  background: rgba(249, 115, 22, 0.12);
+  color: var(--hud-text);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.hud__hazard strong {
+  color: var(--hud-strong);
+}
+
+#game-over-overlay.game-over {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 2.5rem 1rem;
+  background: rgba(10, 14, 20, 0.86);
+  color: #f8fafc;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+  z-index: 100;
+}
+
+.game-over__title {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2.5rem, 5vw, 3.4rem);
+  letter-spacing: 0.05em;
+}
+
+.game-over__reason {
+  margin: 0 0 1.75rem;
+  font-size: clamp(1rem, 2.2vw, 1.3rem);
+  max-width: min(500px, 90vw);
+  line-height: 1.6;
+  opacity: 0.82;
+}
+
+.game-over__button {
+  padding: 0.8rem 2.6rem;
+  font-size: 1.05rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: #f97316;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.game-over__button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+
+.game-over__button:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+#game-over-overlay.game-over.game-over--visible {
+  opacity: 1;
+  pointer-events: auto;
+}

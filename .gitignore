@@ -2,6 +2,9 @@
 _Debug/
 Compiled/
 node_modules
+dist
+build
+.output
 # AudioCache can be rebuilt from sources
 AudioCache/
 
@@ -18,7 +21,7 @@ backup_acsprset.spr
 
 # Memory dumps
 *.dmp
-
+*.zip
 # Temporary files
 # temporarily created during sprite or room background compression
 ~aclzw.tmp

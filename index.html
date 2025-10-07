@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- head -> metadata & global stylesheets -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Grand Theft Scooter</title>
@@ -9,25 +10,41 @@
     <link rel="stylesheet" href="/styles/responsive.css" />
   </head>
   <body>
+    <!-- body -> noscript (fallback messaging) -->
+    <noscript>
+      This experience requires JavaScript to run the 3D mall chaos. Please enable it and reload.
+    </noscript>
+
+    <!-- body -> canvas#app (Three.js render surface) -->
     <canvas id="app" aria-label="Grand Theft Scooter gameplay canvas"></canvas>
+
+    <!-- body -> div.hud (static helper overlay tree) -->
     <div class="hud" role="presentation">
+      <!-- hud -> section.hud__panel (session stats + tips) -->
       <section class="hud__panel" aria-live="polite">
         <p class="hud__title">Grand Theft Scooter</p>
         <p class="hud__speed">
           <span data-speed>0.0</span>
           <small>km/h</small>
         </p>
-        <div class="hud__controls">
-          <span data-prompt>Tap <strong>W</strong> / <strong>↑</strong> to accelerate</span>
-          <span>Steer with <strong>A / D</strong> or the arrow keys</span>
-          <span>Hold <strong>S</strong> / <strong>↓</strong> to brake or reverse</span>
+        <!-- hud__panel -> div.hud__controls (input hints) -->
+        <div class="hud__controls" data-controls>
+          <span data-hint-accelerate>Tap <strong>W</strong> or <strong>↑</strong> to accelerate</span>
+          <span data-hint-steer>Steer with <strong>A / D</strong> or the arrow keys</span>
+          <span data-hint-brake>Hold <strong>S</strong> or <strong>↓</strong> to brake or reverse</span>
         </div>
+        <p class="hud__hazard">
+          Chase points by bowling over mall patrons riding the new character models, but colliding with
+          <strong>security gates</strong>, <strong>maintenance barriers</strong>, cleaning robots, or the mall walls will end the run instantly.
+        </p>
       </section>
+      <!-- hud -> footer.hud__footer (actions + alerts) -->
       <footer class="hud__footer">
         <button class="hud__btn" type="button" data-reset>Reset Scooter (R)</button>
         <span class="hud__alert" data-alert aria-live="assertive"></span>
       </footer>
     </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

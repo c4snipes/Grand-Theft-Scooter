@@ -14,13 +14,14 @@ PREVIEW_FLAGS ?= --host $(HOST) --port $(PREVIEW_PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help ensure-deps setup dev-local dev build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down
+.PHONY: help ensure-deps setup dev-local dev build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets
 
 help:
 	@printf 'Usage: make <target>\n\n'
 	@printf 'Local workflow:\n'
 	@printf '  make ensure-deps   Verify Node/npm and optional tools\n'
 	@printf '  make setup         Install dependencies (npm ci)\n'
+	@printf '  make assets        Confirm GLTF and texture assets are present\n'
 	@printf '  make dev-local     Run Vite dev server on $(HOST):$(PORT)\n'
 	@printf '  make preview       Preview production build on $(HOST):$(PREVIEW_PORT)\n'
 	@printf '  make build         Build production assets\n'
@@ -41,15 +42,32 @@ help:
 
 ensure-deps:
 	SKIP_NPM_INSTALL=1 ./scripts/ensure-deps.sh
+	$(PKG) install
+	$(PKG) run build
+	$(PKG) run lint
+	$(PKG) run typecheck
+	$(PKG) test --if-present
+
 
 setup: ensure-deps
 	$(PKG) ci
+	$(PKG) run build
+	$(PKG) run lint
+	$(PKG) run typecheck
+	$(PKG) test --if-present
+
 
 dev-local:
 	$(PKG) run dev -- $(DEV_FLAGS)
+	$(PKG) run build
+	$(PKG) run lint
+	$(PKG) run typecheck
+	$(PKG) test --if-present
+
 
 dev:
 	$(DOCKER_COMPOSE) up
+
 
 build:
 	$(PKG) run build
@@ -57,8 +75,15 @@ build:
 preview:
 	$(PKG) run preview -- $(PREVIEW_FLAGS)
 
+
 clean:
-	rm -rf node_modules dist
+	rm -rf node_modules
+	rm -rf dist
+	rm -rf build
+	rm -rf .output
+	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE) rm -f
+
 
 lint:
 	$(PKG) run lint --if-present
@@ -71,7 +96,16 @@ test:
 
 check: lint typecheck test
 
-doctor: ensure-deps check
+
+
+assets:
+	@test -f public/assets/mall_kiosk.gltf
+	@test -f public/assets/mall_floor_tile.gltf
+	@test -f public/assets/mall_floor.png
+	@test -f public/assets/mall_column.gltf
+	@test -f public/assets/mall_banner.gltf
+	@test -f public/assets/mall_banner.png
+	@printf 'Mall assets located in public/assets/ are ready.\\n'
 
 docker-build:
 	docker build -t $(IMAGE) .
