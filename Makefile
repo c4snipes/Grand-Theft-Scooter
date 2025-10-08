@@ -1,6 +1,7 @@
 SHELL := /bin/sh
 PKG ?= npm
 PORT ?= 5173
+PREVIEW_PORT ?= 8080
 HOST ?= 0.0.0.0
 IMAGE ?= grand-theft-scooter
 REGISTRY ?= ghcr.io
@@ -13,22 +14,25 @@ PREVIEW_FLAGS ?= --host $(HOST) --port $(PREVIEW_PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help ensure-deps setup dev-local dev build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets
+.PHONY: help ensure-deps setup run start docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets stop-all
 
 help:
 	@printf 'Usage: make <target>\n\n'
+	@printf 'Development (only one runs at a time):\n'
+	@printf '  make run           Simple run on localhost:$(PORT)\n'
+	@printf '  make start         Run development server on $(HOST):$(PORT)\n'
+	@printf '  make docker        Run Docker server on $(HOST):$(PORT)\n'
+	@printf '  make stop-all      Stop all running services\n\n'
 	@printf 'Local workflow:\n'
 	@printf '  make ensure-deps   Verify Node/npm and optional tools\n'
 	@printf '  make setup         Install dependencies (npm ci)\n'
 	@printf '  make assets        Confirm GLTF and texture assets are present\n'
-	@printf '  make dev-local     Run Vite dev server on $(HOST):$(PORT)\n'
 	@printf '  make preview       Preview production build on $(HOST):$(PREVIEW_PORT)\n'
 	@printf '  make build         Build production assets\n'
 	@printf '  make clean         Remove node_modules and dist\n'
 	@printf '  make check         Run lint, typecheck, and tests\n'
 	@printf '  make doctor        Run ensure-deps followed by check\n\n'
 	@printf 'Docker workflow:\n'
-	@printf '  make dev           Start docker-compose dev stack (foreground)\n'
 	@printf '  make docker-dev    Start docker-compose dev stack with --build\n'
 	@printf '  make up            Start docker-compose dev stack (detached)\n'
 	@printf '  make down          Stop docker-compose dev stack\n'
@@ -52,16 +56,22 @@ setup: ensure-deps
 	$(PKG) ci
 
 
-dev-local:
-	$(PKG) run dev -- $(DEV_FLAGS)
-	$(PKG) run build
-	$(PKG) run lint
-	$(PKG) run typecheck
-	$(PKG) test --if-present
+run: stop-all
+	$(PKG) run dev -- --port $(PORT)
 
+start: stop-all
+	@printf 'Starting development server...\n'
+	$(PKG) run dev -- --host $(HOST) --port $(PORT)
 
-dev:
+docker: stop-all
+	@printf 'Starting Docker server...\n'
 	$(DOCKER_COMPOSE) up
+
+stop-all:
+	@printf 'Stopping any running services...\n'
+	-$(DOCKER_COMPOSE) down 2>/dev/null || true
+	-docker stop $$(docker ps -q --filter "ancestor=$(IMAGE)") 2>/dev/null || true
+	-pkill -f "vite.*$(PORT)" 2>/dev/null || true
 
 
 build:
