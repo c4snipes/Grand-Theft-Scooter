@@ -1,10 +1,16 @@
 import { RepeatWrapping, SRGBColorSpace } from 'three';
 import { TextureLoader } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 // --> Asset Loader: pulls in simple GLTF + texture files so the mall feels more like a real venue.
 const textureLoader = new TextureLoader();
 const gltfLoader = new GLTFLoader();
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+dracoLoader.setCrossOrigin('anonymous');
+dracoLoader.preload();
+gltfLoader.setDRACOLoader(dracoLoader);
 
 async function safeLoad(label, loaderFn) {
   try {
@@ -40,7 +46,7 @@ function resolveAssetPath(inputPath) {
 
 function toFriendlyLabel(fileName) {
   return fileName
-    .replace(/\.glb$/i, '')
+    .replace(/\.(glb|gltf)$/i, '')
     .replace(/[-_]+/g, ' ')
     .replace(/\b([a-z])/g, (_, char) => char.toUpperCase())
     .trim();
@@ -75,34 +81,34 @@ export async function loadMallAssets() {
     riderGltf,
     characterBaseGltf,
   ] = await Promise.all([
-    safeLoad('mall kiosk glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_kiosk.glb'))),
-    safeLoad('column glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_column.glb'))),
-    safeLoad('banner glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_banner.glb'))),
+    safeLoad('mall kiosk model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_kiosk.gltf'))),
+    safeLoad('column model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_column.gltf'))),
+    safeLoad('banner model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_banner.gltf'))),
     safeLoad('banner texture', () => textureLoader.loadAsync(resolveAssetPath('assets/mall_banner.png'))),
-    safeLoad('shopping mall glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/shopping_mall/scene.glb'))),
-    safeLoad('mobility scooter glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/mobility_scooter_animated/scene.glb'))),
-    safeLoad('evil old lady glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/evil_old_lady/scene.glb'))),
-    safeLoad('base npc glb', () => gltfLoader.loadAsync(resolveAssetPath('assets/Character Base.glb'))),
+    safeLoad('shopping mall model', () => gltfLoader.loadAsync(resolveAssetPath('assets/shopping_mall/scene.gltf'))),
+    safeLoad('mobility scooter model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mobility_scooter_animated/scene.gltf'))),
+    safeLoad('evil old lady model', () => gltfLoader.loadAsync(resolveAssetPath('assets/evil_old_lady/scene.gltf'))),
+    safeLoad('base npc model', () => gltfLoader.loadAsync(resolveAssetPath('assets/Character Base.gltf'))),
   ]);
 
   const menNpcGltfs = await loadNpcPack('animated men npc', 'assets/Animated Men Pack-glb', [
-    'Man.glb',
-    'Man in Suit.glb',
-    'Man in Long Sleeves.glb',
-    'Man-fjHyMd5Wxw.glb',
+    'Man.gltf',
+    'Man in Suit.gltf',
+    'Man in Long Sleeves.gltf',
+    'Man-fjHyMd5Wxw.gltf',
   ]);
 
   const womenNpcGltfs = await loadNpcPack('animated women npc', 'assets/Ultimate Modular Women Pack-glb', [
-    'Animated Woman.glb',
-    'Animated Woman-nIItLV9nxS.glb',
-    'Adventurer.glb',
-    'Medieval.glb',
-    'Punk.glb',
-    'Sci Fi Character.glb',
-    'Soldier.glb',
-    'Suit.glb',
-    'Witch.glb',
-    'Worker.glb',
+    'Animated Woman.gltf',
+    'Animated Woman-nIItLV9nxS.gltf',
+    'Adventurer.gltf',
+    'Medieval.gltf',
+    'Punk.gltf',
+    'Sci Fi Character.gltf',
+    'Soldier.gltf',
+    'Suit.gltf',
+    'Witch.gltf',
+    'Worker.gltf',
   ]);
 
   const kioskScene = kioskGltf ? kioskGltf.scene : null;

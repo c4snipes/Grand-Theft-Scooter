@@ -66,6 +66,16 @@ Make wrappers (`make dev`, `make docker-dev`, `make up`, `make down`, `make dock
 
 > **Can’t run Docker?** No problem. Everything works with the local Node workflow (`npm ci`, `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a container for consistent environments. Only worry about Docker if your team uses it for deployment or you need parity with CI.
 
+### Optimize 3D Assets (Draco/WebP)
+Run the `gltf-transform` optimizer in a reproducible way:
+```sh
+./scripts/optimize-assets.sh
+```
+- If Docker is available, the script builds the lightweight image in `docker/gltf-transform/` and runs `gltf-transform optimize --compress draco --texture-compress webp` for every `.glb`/`.gltf` under `public/assets`.
+- Without Docker it falls back to a local CLI (`npm install -g gltf-transform`) so you can still compress assets on a locked-down machine.
+- The optimized file replaces the original; rerunning the script is safe and idempotent.
+- Add new 3D content, run the script once, and commit the updated artifacts (including any generated `.bin` or texture files).
+
 ## Everyday Commands
 ```sh
 # Build artifacts

@@ -1,51 +1,18 @@
 {
   "asset": {
-    "version": "2.0",
-    "generator": "HandmadePlane"
+    "generator": "glTF-Transform v4.2.1",
+    "version": "2.0"
   },
-  "scenes": [
-    {
-      "nodes": [
-        0
-      ]
-    }
-  ],
-  "nodes": [
-    {
-      "mesh": 0
-    }
-  ],
-  "meshes": [
-    {
-      "name": "FloorTile",
-      "primitives": [
-        {
-          "attributes": {
-            "POSITION": 0
-          }
-        }
-      ]
-    }
-  ],
-  "buffers": [
-    {
-      "uri": "data:application/octet-stream;base64,AAAAvwAAAAAAAAC/AAAAPwAAAAAAAAC/AAAAPwAAAAAAAAA/AAAAvwAAAAAAAAC/AAAAPwAAAAAAAAA/AAAAvwAAAAAAAAA/",
-      "byteLength": 72
-    }
-  ],
-  "bufferViews": [
-    {
-      "buffer": 0,
-      "byteOffset": 0,
-      "byteLength": 72
-    }
-  ],
   "accessors": [
     {
-      "bufferView": 0,
-      "componentType": 5126,
-      "count": 6,
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 6
+    },
+    {
       "type": "VEC3",
+      "componentType": 5126,
+      "count": 4,
       "max": [
         0.5,
         0,
@@ -57,5 +24,67 @@
         -0.5
       ]
     }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 75
+    }
+  ],
+  "buffers": [
+    {
+      "name": "mall_floor_tile",
+      "uri": "mall_floor_tile.glb.bin",
+      "byteLength": 75
+    }
+  ],
+  "materials": [
+    {
+      "name": "default",
+      "pbrMetallicRoughness": {}
+    }
+  ],
+  "meshes": [
+    {
+      "name": "FloorTile",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0,
+          "extensions": {
+            "KHR_draco_mesh_compression": {
+              "bufferView": 0,
+              "attributes": {
+                "POSITION": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_draco_mesh_compression"
+  ],
+  "extensionsRequired": [
+    "KHR_draco_mesh_compression"
   ]
 }

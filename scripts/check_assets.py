@@ -12,7 +12,7 @@ PATHS = [
     "public/assets/mobility_scooter_animated/scene.gltf",
     "public/assets/evil_old_lady/scene.gltf",
     "public/assets/shopping_mall/scene.gltf",
-    "public/assets/Character Base.glb",
+    "public/assets/Character Base.gltf",
     "public/assets/Animated Men Pack-glb",
     "public/assets/Ultimate Modular Women Pack-glb",
 ]

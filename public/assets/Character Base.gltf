@@ -1,0 +1,123 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.2.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 4524
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 3064
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 3064,
+      "max": [
+        0.14224417507648468,
+        0.11300645768642426,
+        0.020134955644607544
+      ],
+      "min": [
+        -0.14224417507648468,
+        -0.4006451666355133,
+        -0.07800450921058655
+      ]
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 6970
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "Character Base.glb.bin",
+      "byteLength": 6970
+    }
+  ],
+  "materials": [
+    {
+      "name": "DefaultMaterial",
+      "extras": {
+        "fromFBX": {
+          "shadingModel": "Lambert",
+          "isTruePBR": false
+        }
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.5,
+          0.5,
+          0.5,
+          1
+        ],
+        "roughnessFactor": 0.800000011920929,
+        "metallicFactor": 0.200000002980232
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Plane.007",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 2
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0,
+          "extensions": {
+            "KHR_draco_mesh_compression": {
+              "bufferView": 0,
+              "attributes": {
+                "NORMAL": 0,
+                "POSITION": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Plane.007",
+      "translation": [
+        6.39737272262573,
+        1.48924660682678,
+        0.198106124997139
+      ],
+      "scale": [
+        3.72097754478455,
+        3.72097754478455,
+        3.72097754478455
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Root Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "KHR_draco_mesh_compression"
+  ],
+  "extensionsRequired": [
+    "KHR_draco_mesh_compression"
+  ]
+}
