@@ -7,16 +7,16 @@ export function createScoreboard() {
     top: '20px',
     right: '20px',
     left: 'auto',
-    padding: '10px 14px',
+    padding: '8px 12px',
     background: 'rgba(0, 0, 0, 0.55)',
     color: '#fff',
     fontFamily: 'Arial, sans-serif',
-    fontSize: '18px',
+    fontSize: '16px',
     borderRadius: '6px',
     pointerEvents: 'none',
     zIndex: '10',
-    maxWidth: '280px',
-    lineHeight: '1.4',
+    maxWidth: '220px',
+    lineHeight: '1.35',
     textAlign: 'right',
   });
 
@@ -26,7 +26,7 @@ export function createScoreboard() {
 
   const lastLine = document.createElement('div');
   lastLine.textContent = '';
-  lastLine.style.fontSize = '14px';
+  lastLine.style.fontSize = '13px';
   lastLine.style.opacity = '0.8';
   root.appendChild(lastLine);
 

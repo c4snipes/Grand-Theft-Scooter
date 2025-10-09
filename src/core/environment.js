@@ -78,7 +78,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
     mall.name = 'shopping-mall';
-    const mallScale = 1.35;
+    const mallScale = 1.6;
     mall.scale.setScalar(mallScale);
     mall.traverse((child) => {
       if (child.isMesh) {

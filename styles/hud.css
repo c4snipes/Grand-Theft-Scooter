@@ -14,11 +14,11 @@
 }
 
 .hud__panel {
-  width: min(320px, 90vw);
+  width: min(240px, 85vw);
   background: var(--hud-surface);
   border: 1px solid var(--hud-border);
-  border-radius: 14px;
-  padding: 1.1rem 1.25rem;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
   backdrop-filter: blur(var(--hud-blur));
   box-shadow: var(--hud-shadow);
 }
@@ -32,9 +32,9 @@
 }
 
 .hud__speed {
-  font-size: 2.25rem;
+  font-size: 1.9rem;
   font-weight: 600;
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.5rem;
   color: var(--hud-speed);
 }
 
@@ -46,9 +46,9 @@
 
 .hud__controls {
   display: grid;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  line-height: 1.4;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
   color: var(--hud-text);
 }
 
@@ -104,14 +104,14 @@
 }
 
 .hud__hazard {
-  margin-top: 0.6rem;
-  padding: 0.65rem 0.75rem;
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
   border-left: 3px solid rgba(249, 115, 22, 0.85);
   border-radius: 6px;
   background: rgba(249, 115, 22, 0.12);
   color: var(--hud-text);
-  font-size: 0.78rem;
-  line-height: 1.5;
+  font-size: 0.74rem;
+  line-height: 1.45;
 }
 
 .hud__hazard strong {

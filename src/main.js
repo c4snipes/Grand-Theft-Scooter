@@ -46,7 +46,7 @@ async function startGame() {
 
   let controls = null;
   let scoreboard = null;
-  let cameraMode = 'orbit';
+  let cameraMode = 'follow';
   let activeLayout = 'wasd';
   let applyEnvironmentTheme = () => {};
 
@@ -85,11 +85,13 @@ async function startGame() {
   const { world, materials } = createPhysicsWorld();
   controls = createKeyboardControls(activeLayout);
   scoreboard = createScoreboard();
+  const resetButton = document.querySelector('[data-reset]');
   const gameOverOverlay = createGameOverOverlay(() => {
     window.location.reload();
   });
   const scooter = createScooter(world, materials.player, assets);
   scene.add(scooter.mesh);
+  scooter.sync(0);
   setCameraMode(cameraMode);
   const mall = createMall(world, scene, assets, materials);
   mall.populate({ mode: assets.mallScene ? 'static' : 'default' });
@@ -102,25 +104,55 @@ async function startGame() {
   const cameraRight = new Vector3();
   const cameraMove = new Vector3();
   const worldUp = new Vector3(0, 1, 0);
+  const spawnPosition = { x: 0, y: 0.8, z: 0 };
+  const spawnQuaternion = { x: 0, y: 0, z: 0, w: 1 };
   let isGameOver = false;
 
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
     const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
     if (cameraMode === 'orbit') {
-      scoreboard.setMessage(`Free camera active. Use ${schemeLabel} to glide the camera. Drag to look around, scroll to zoom, press C to get back on the scooter. Press Esc for settings.`);
+      scoreboard.setMessage(`Free camera active. Use ${schemeLabel} to glide the camera. Drag to look around, scroll to zoom, press C to get back on the scooter, R to reset your ride, Esc for settings.`);
     } else {
-      scoreboard.setMessage(`Follow cam active. Use ${schemeLabel} to drive the scooter. Press C to switch to the free camera. Press Esc for settings.`);
+      scoreboard.setMessage(`Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera, R to reset your ride, Esc for settings.`);
     }
+  }
+
+  function resetScooter() {
+    if (isGameOver) return;
+    scooter.body.velocity.set(0, 0, 0);
+    scooter.body.angularVelocity.set(0, 0, 0);
+    scooter.body.position.set(spawnPosition.x, spawnPosition.y, spawnPosition.z);
+    scooter.body.quaternion.set(spawnQuaternion.x, spawnQuaternion.y, spawnQuaternion.z, spawnQuaternion.w);
+    scooter.sync(0);
+    orbitControls.target.copy(scooter.mesh.position);
+    orbitControls.update();
+    if (cameraMode !== 'follow') {
+      cameraMode = 'follow';
+      setCameraMode(cameraMode);
+    }
+    refreshCameraMessage();
   }
 
   refreshCameraMessage();
 
+  if (resetButton) {
+    resetButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      resetScooter();
+    });
+  }
+
   window.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'c') {
+    const key = event.key.toLowerCase();
+    if (key === 'c' && !isGameOver) {
       cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
       setCameraMode(cameraMode);
       refreshCameraMessage();
+    }
+    if (key === 'r') {
+      event.preventDefault();
+      resetScooter();
     }
   });
 

@@ -14,9 +14,18 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
 
 // --> Entity: player scooter with grandma rider and visual assets.
-const TARGET_SCOOTER_SIZE = new Vector3(1.2, 1.55, 2.2);
-const TARGET_RIDER_HEIGHT = 1.68;
-const RIDER_SEAT_OFFSET = new Vector3(0, 0.7, -0.12);
+const SCOOTER_DIMENSIONS = {
+  width: 0.88,
+  height: 1.2,
+  length: 1.6,
+};
+const TARGET_SCOOTER_SIZE = new Vector3(
+  SCOOTER_DIMENSIONS.width,
+  SCOOTER_DIMENSIONS.height,
+  SCOOTER_DIMENSIONS.length,
+);
+const TARGET_RIDER_HEIGHT = 1.28;
+const RIDER_SEAT_OFFSET = new Vector3(0, 0.52, -0.08);
 
 function buildFallbackScooterMesh() {
   const scooterGroup = new Group();
@@ -177,6 +186,17 @@ function buildFallbackScooterMesh() {
 
   scooterGroup.add(grandma);
 
+  scooterGroup.updateMatrixWorld(true);
+  const fallbackBounds = new Box3().setFromObject(scooterGroup);
+  const fallbackSize = fallbackBounds.getSize(new Vector3());
+  const fallbackScale = fallbackSize.z > 0 ? TARGET_SCOOTER_SIZE.z / fallbackSize.z : 1;
+  scooterGroup.scale.setScalar(fallbackScale);
+  scooterGroup.updateMatrixWorld(true);
+  const normalizedBounds = new Box3().setFromObject(scooterGroup);
+  const normalizedCenter = normalizedBounds.getCenter(new Vector3());
+  scooterGroup.position.sub(normalizedCenter);
+  scooterGroup.position.y -= normalizedBounds.min.y;
+
   return scooterGroup;
 }
 
@@ -315,17 +335,14 @@ function buildScooterMeshFromAssets(assets = {}) {
 }
 
 export function createScooter(world, material, assets = {}) {
-  const scooterSize = new Vec3(1.2, 1.55, 2.2);
-  const scooterHalfExtents = new Vec3(
-    scooterSize.x / 2,
-    scooterSize.y / 2,
-    scooterSize.z / 2,
-  );
-
   const body = new Body({
     mass: 25,
-    shape: new CannonBox(scooterHalfExtents),
-    position: new Vec3(0, 1, 0),
+    shape: new CannonBox(new Vec3(
+      SCOOTER_DIMENSIONS.width / 2,
+      SCOOTER_DIMENSIONS.height / 2,
+      SCOOTER_DIMENSIONS.length / 2,
+    )),
+    position: new Vec3(0, 0.8, 0),
     angularDamping: 0.5,
     linearDamping: 0.3,
   });
