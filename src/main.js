@@ -104,7 +104,7 @@ async function startGame() {
   const cameraRight = new Vector3();
   const cameraMove = new Vector3();
   const worldUp = new Vector3(0, 1, 0);
-  const spawnPosition = { x: 0, y: 0.8, z: 0 };
+  const spawnPosition = { x: 0, y: 0.35, z: 0 };
   const spawnQuaternion = { x: 0, y: 0, z: 0, w: 1 };
   let isGameOver = false;
 
@@ -135,6 +135,7 @@ async function startGame() {
   }
 
   refreshCameraMessage();
+  resetScooter();
 
   if (resetButton) {
     resetButton.addEventListener('click', (event) => {

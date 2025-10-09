@@ -15,17 +15,17 @@ import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
 
 // --> Entity: player scooter with grandma rider and visual assets.
 const SCOOTER_DIMENSIONS = {
-  width: 0.88,
-  height: 1.2,
-  length: 1.6,
+  width: 0.36,
+  height: 0.58,
+  length: 0.64,
 };
 const TARGET_SCOOTER_SIZE = new Vector3(
   SCOOTER_DIMENSIONS.width,
   SCOOTER_DIMENSIONS.height,
   SCOOTER_DIMENSIONS.length,
 );
-const TARGET_RIDER_HEIGHT = 1.28;
-const RIDER_SEAT_OFFSET = new Vector3(0, 0.52, -0.08);
+const TARGET_RIDER_HEIGHT = 0.82;
+const RIDER_SEAT_OFFSET = new Vector3(0, 0.26, -0.035);
 
 function buildFallbackScooterMesh() {
   const scooterGroup = new Group();
@@ -342,7 +342,7 @@ export function createScooter(world, material, assets = {}) {
       SCOOTER_DIMENSIONS.height / 2,
       SCOOTER_DIMENSIONS.length / 2,
     )),
-    position: new Vec3(0, 0.8, 0),
+    position: new Vec3(0, SCOOTER_DIMENSIONS.height / 2 + 0.05, 0),
     angularDamping: 0.5,
     linearDamping: 0.3,
   });

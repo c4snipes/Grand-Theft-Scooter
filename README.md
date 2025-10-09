@@ -35,21 +35,21 @@ The helper script `./scripts/ensure-deps.sh` checks your operating system, confi
 If GNU Make is installed, the same flow is available through convenience targets:
 ```sh
 make help          # show command reference
-make ensure-deps   # runs ensure-deps.sh without installing node_modules
-make setup         # runs ensure-deps + npm ci
-make dev-local     # npm run dev -- --host 0.0.0.0 --port 5173
+make dev           # start dev server on $(HOST):$(PORT) (defaults 0.0.0.0:5173)
+make docker        # docker compose -f docker/docker-compose.dev.yml up
+make stop-all      # stop Vite and docker-compose processes
+make ensure-deps   # verify tooling, install deps, run baseline checks
+make setup         # runs ensure-deps then npm ci
+make assets        # confirm required GLTF/texture assets exist
 make build         # npm run build
 make preview       # npm run preview -- --host 0.0.0.0 --port 8080
-make check         # npm run lint/typecheck/test
-make doctor        # ensure-deps + check
-make dev           # docker compose -f docker-compose.dev.yml up
-make docker-dev    # docker compose -f docker-compose.dev.yml up --build
-make docker-logs   # docker compose logs -f
-make docker-shell  # docker compose exec web sh
-make up            # docker compose up -d
-make down          # docker compose -f docker-compose.dev.yml down
-make clean         # rm -rf node_modules dist
-make docker-build  # docker build -t grand-theft-scooter .
+make docker-dev    # docker compose -f docker/docker-compose.dev.yml up --build
+make docker-logs   # docker compose -f docker/docker-compose.dev.yml logs -f
+make docker-shell  # docker compose -f docker/docker-compose.dev.yml exec web sh
+make up            # docker compose -f docker/docker-compose.dev.yml up -d
+make down          # docker compose -f docker/docker-compose.dev.yml down
+make clean         # remove node_modules/dist/build/.output and stop containers
+make docker-build  # docker build -f docker/Dockerfile -t grand-theft-scooter .
 make docker-run    # docker run --rm -p 8080:80 grand-theft-scooter
 make docker-tag    # tag image with $(REPO):latest (requires env)
 make docker-push   # push tagged image to $(REPO)
@@ -58,11 +58,11 @@ make docker-push   # push tagged image to $(REPO)
 ### Develop with Docker
 Run the project without installing Node locally:
 ```sh
-docker compose -f docker-compose.dev.yml up --build
+docker compose -f docker/docker-compose.dev.yml up --build
 # Press Ctrl+C to stop the stack when finished
-docker compose -f docker-compose.dev.yml down
+docker compose -f docker/docker-compose.dev.yml down
 ```
-Make wrappers (`make dev`, `make docker-dev`, `make up`, `make down`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
+Make wrappers (`make docker`, `make docker-dev`, `make up`, `make down`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
 
 > **Can’t run Docker?** No problem. Everything works with the local Node workflow (`npm ci`, `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a container for consistent environments. Only worry about Docker if your team uses it for deployment or you need parity with CI.
 
@@ -92,19 +92,10 @@ Remove-Item -Recurse -Force node_modules, dist  # Windows PowerShell
 # or: make clean
 
 # Docker images (after npm run build)
-docker build -t grand-theft-scooter .
+docker build -f docker/Dockerfile -t grand-theft-scooter .
 docker run --rm -p 8080:80 grand-theft-scooter
 # or: make docker-build && make docker-run
 
-# Testing & linting (currently stubbed)
-npm run lint
-npm run typecheck
-npm test
-# or: make lint / make typecheck / make test
-
-# All checks at once
-make check          # lint + typecheck + test
-make doctor         # ensure-deps + make check
 ```
 
 ## Gameplay Overview

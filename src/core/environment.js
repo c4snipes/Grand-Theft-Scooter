@@ -65,8 +65,9 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
 
   let ground = null;
   if (!assets.mallScene) {
+    const groundSize = 240;
     ground = new Mesh(
-      new PlaneGeometry(160, 160),
+      new PlaneGeometry(groundSize, groundSize),
       groundMaterial,
     );
     ground.rotation.x = -Math.PI / 2;
@@ -78,7 +79,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
     mall.name = 'shopping-mall';
-    const mallScale = 1.6;
+    const mallScale = 10;
     mall.scale.setScalar(mallScale);
     mall.traverse((child) => {
       if (child.isMesh) {
@@ -106,7 +107,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     scene.add(mall);
   }
 
-  const cameraOffset = new Vector3(-14, 8, 22);
+  const cameraOffset = new Vector3(-9, 4.5, 11);
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();

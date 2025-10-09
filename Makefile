@@ -6,7 +6,7 @@ HOST ?= 0.0.0.0
 IMAGE ?= grand-theft-scooter
 REGISTRY ?= ghcr.io
 REPO ?= $(REGISTRY)/c4snipes/grand-theft-scooter
-DC_DEV ?= docker-compose.dev.yml
+DC_DEV ?= docker/docker-compose.dev.yml
 SERVICE ?= web
 DOCKER_COMPOSE ?= docker compose -f $(DC_DEV)
 DEV_FLAGS ?= --host $(HOST) --port $(PORT)
@@ -14,14 +14,13 @@ PREVIEW_FLAGS ?= --host $(HOST) --port $(PREVIEW_PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help ensure-deps setup run start docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets stop-all
+.PHONY: help ensure-deps setup dev docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets stop-all compose
 
 help:
 	@printf 'Usage: make <target>\n\n'
 	@printf 'Development (only one runs at a time):\n'
-	@printf '  make run           Simple run on localhost:$(PORT)\n'
-	@printf '  make start         Run development server on $(HOST):$(PORT)\n'
-	@printf '  make docker        Run Docker server on $(HOST):$(PORT)\n'
+	@printf '  make dev           Start development server on $(HOST):$(PORT)\n'
+	@printf '  make docker        Start docker-compose dev stack in the foreground\n'
 	@printf '  make stop-all      Stop all running services\n\n'
 	@printf 'Local workflow:\n'
 	@printf '  make ensure-deps   Verify Node/npm and optional tools\n'
@@ -56,16 +55,16 @@ setup: ensure-deps
 	$(PKG) ci
 
 
-run: stop-all
-	$(PKG) run dev -- --port $(PORT)
-
-start: stop-all
-	@printf 'Starting development server...\n'
+dev: stop-all
+	@printf 'Starting development server on %s:%s...\n' "$(HOST)" "$(PORT)"
 	$(PKG) run dev -- --host $(HOST) --port $(PORT)
 
+compose:
+	$(DOCKER_COMPOSE) up $(COMPOSE_ARGS)
+
 docker: stop-all
-	@printf 'Starting Docker server...\n'
-	$(DOCKER_COMPOSE) up
+	@printf 'Starting docker-compose dev stack...\n'
+	$(MAKE) compose
 
 stop-all:
 	@printf 'Stopping any running services...\n'
@@ -104,7 +103,7 @@ assets:
 	@python3 scripts/check_assets.py
 
 docker-build:
-	docker build -t $(IMAGE) .
+	docker build -f docker/Dockerfile -t $(IMAGE) .
 
 docker-run:
 	docker run --rm -p 8080:80 $(IMAGE)
@@ -115,8 +114,9 @@ docker-tag:
 docker-push:
 	test -n "$(REPO)" && docker push $(REPO):latest
 
-docker-dev:
-	$(DOCKER_COMPOSE) up --build
+docker-dev: stop-all
+	@printf 'Starting docker-compose dev stack with --build...\n'
+	$(MAKE) compose COMPOSE_ARGS="--build"
 
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f
@@ -125,7 +125,7 @@ docker-shell:
 	$(DOCKER_COMPOSE) exec $(SERVICE) sh
 
 up:
-	$(DOCKER_COMPOSE) up -d
+	$(MAKE) compose COMPOSE_ARGS="-d"
 
 down:
 	$(DOCKER_COMPOSE) down

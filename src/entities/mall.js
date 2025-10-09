@@ -18,8 +18,8 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.j
 
 // --> Environment Entities: this file is me trying to make the mall feel alive with random props.
 const mallBounds = {
-  halfExtent: 46,
-  clearRadius: 7,
+  halfExtent: 60,
+  clearRadius: 10,
 };
 
 const shirtPalette = ['#4f7cd1', '#d94f70', '#4fbfa8', '#f0821f'];
@@ -602,33 +602,38 @@ export function createMall(world, scene, assets = {}, materials = {}) {
   }
 
   function spawnMallBoundaries() {
-    const thickness = 1.5;
-    const height = 3.2;
-    const length = mallBounds.halfExtent * 2 + thickness * 2;
-    const boundaryMaterial = new MeshStandardMaterial({
+    const wallThickness = 2.4;
+    const wallHeight = 6;
+    const floorHalfExtent = mallBounds.halfExtent + wallThickness;
+
+    const wallMaterial = new MeshStandardMaterial({
       color: '#8fb6d8',
       transparent: true,
-      opacity: 0.12,
-      metalness: 0.15,
-      roughness: 0.65,
+      opacity: 0.08,
+      metalness: 0.1,
+      roughness: 0.6,
+    });
+
+    const planeMaterial = new MeshStandardMaterial({
+      visible: false,
     });
 
     const segments = [
-      { x: 0, z: mallBounds.halfExtent + thickness / 2, sx: length, sz: thickness },
-      { x: 0, z: -mallBounds.halfExtent - thickness / 2, sx: length, sz: thickness },
-      { x: mallBounds.halfExtent + thickness / 2, z: 0, sx: thickness, sz: length },
-      { x: -mallBounds.halfExtent - thickness / 2, z: 0, sx: thickness, sz: length },
+      { x: 0, z: floorHalfExtent, sx: floorHalfExtent * 2 + wallThickness, sz: wallThickness },
+      { x: 0, z: -floorHalfExtent, sx: floorHalfExtent * 2 + wallThickness, sz: wallThickness },
+      { x: floorHalfExtent, z: 0, sx: wallThickness, sz: floorHalfExtent * 2 + wallThickness },
+      { x: -floorHalfExtent, z: 0, sx: wallThickness, sz: floorHalfExtent * 2 + wallThickness },
     ];
 
     for (const segment of segments) {
-      const mesh = new Mesh(new BoxGeometry(segment.sx, height, segment.sz), boundaryMaterial.clone());
-      mesh.position.set(segment.x, height / 2, segment.z);
+      const mesh = new Mesh(new BoxGeometry(segment.sx, wallHeight, segment.sz), wallMaterial.clone());
+      mesh.position.set(segment.x, wallHeight / 2, segment.z);
       mesh.name = 'mall-boundary';
 
       const body = new Body({
         mass: 0,
-        shape: new CannonBox(new Vec3(segment.sx / 2, height / 2, segment.sz / 2)),
-        position: new Vec3(segment.x, height / 2, segment.z),
+        shape: new CannonBox(new Vec3(segment.sx / 2, wallHeight / 2, segment.sz / 2)),
+        position: new Vec3(segment.x, wallHeight / 2, segment.z),
       });
 
       registerInteractable({
@@ -639,6 +644,28 @@ export function createMall(world, scene, assets = {}, materials = {}) {
         fatal: true,
       });
     }
+
+    const ceilingHeight = 12;
+    const floorSize = mallBounds.halfExtent * 2 + wallThickness * 2;
+
+    const ceiling = new Mesh(new PlaneGeometry(floorSize, floorSize), planeMaterial);
+    ceiling.rotation.x = Math.PI;
+    ceiling.position.y = ceilingHeight;
+    ceiling.name = 'mall-ceiling';
+
+    const ceilingBody = new Body({
+      mass: 0,
+      shape: new CannonBox(new Vec3(floorSize / 2, 0.5, floorSize / 2)),
+      position: new Vec3(0, ceilingHeight, 0),
+    });
+
+    registerInteractable({
+      mesh: ceiling,
+      body: ceilingBody,
+      label: 'Mall Ceiling',
+      type: 'hazard',
+      fatal: true,
+    });
   }
 
   function spawnMallPatron(positionOverride) {
@@ -868,9 +895,7 @@ const staticLayout = {
     }
 
     if (!hazardsPrepared) {
-      if (!useMallAsset) {
-        spawnMallBoundaries();
-      }
+      spawnMallBoundaries();
       hazardsPrepared = true;
     }
 
