@@ -5,7 +5,8 @@ export function createScoreboard() {
   Object.assign(root.style, {
     position: 'fixed',
     top: '20px',
-    left: '20px',
+    right: '20px',
+    left: 'auto',
     padding: '10px 14px',
     background: 'rgba(0, 0, 0, 0.55)',
     color: '#fff',
@@ -14,6 +15,9 @@ export function createScoreboard() {
     borderRadius: '6px',
     pointerEvents: 'none',
     zIndex: '10',
+    maxWidth: '280px',
+    lineHeight: '1.4',
+    textAlign: 'right',
   });
 
   const scoreLine = document.createElement('div');

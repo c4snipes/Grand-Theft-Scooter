@@ -1,6 +1,7 @@
 import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
 import {
   AnimationMixer,
+  Box3,
   BoxGeometry,
   CircleGeometry,
   Color,
@@ -65,9 +66,34 @@ export function createMall(world, scene, assets = {}, materials = {}) {
   let hazardsPrepared = false;
   const useMallAsset = Boolean(assets.mallScene);
   const kioskFactory = typeof assets.makeKioskInstance === 'function' ? assets.makeKioskInstance.bind(assets) : null;
-  const tileFactory = typeof assets.makeFloorTileInstance === 'function' ? assets.makeFloorTileInstance.bind(assets) : null;
   const columnFactory = typeof assets.makeColumnInstance === 'function' ? assets.makeColumnInstance.bind(assets) : null;
   const bannerFactory = typeof assets.makeBannerInstance === 'function' ? assets.makeBannerInstance.bind(assets) : null;
+
+  function wrapAssetForCollision(object, name) {
+    if (!object) return null;
+    const container = new Group();
+    container.name = name;
+    container.add(object);
+
+    container.updateWorldMatrix(true, true);
+    const bounds = new Box3().setFromObject(container);
+    if (bounds.isEmpty()) {
+      return {
+        mesh: container,
+        size: new Vector3(1, 1, 1),
+      };
+    }
+
+    const size = bounds.getSize(new Vector3());
+    const center = bounds.getCenter(new Vector3());
+    object.position.sub(center);
+    container.updateWorldMatrix(true, true);
+
+    return {
+      mesh: container,
+      size,
+    };
+  }
 
   function registerInteractable({
     mesh,
@@ -170,28 +196,6 @@ export function createMall(world, scene, assets = {}, materials = {}) {
     fountainPool.position.y = 0.72;
     decor.add(fountainPool);
 
-    if (tileFactory) {
-      const tileHub = new Group();
-      tileHub.name = 'mall-tiles';
-      tileHub.position.y = 0.025;
-      const tileSpacing = 3.8;
-      for (let x = -2; x <= 2; x += 1) {
-        for (let z = -2; z <= 2; z += 1) {
-          const tile = tileFactory();
-          if (!tile) continue;
-          tile.scale.set(4.2, 1, 4.2);
-          tile.position.set(x * tileSpacing, 0, z * tileSpacing);
-          tile.traverse((child) => {
-            if (child.isMesh) {
-              child.material = new MeshStandardMaterial({ color: '#2d3946', roughness: 0.75 });
-            }
-          });
-          tileHub.add(tile);
-        }
-      }
-      decor.add(tileHub);
-    }
-
     scene.add(decor);
   }
 
@@ -216,7 +220,11 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       column.position.set(x, height / 2, z);
       column.traverse((child) => {
         if (child.isMesh) {
-          child.material = new MeshStandardMaterial({ color: '#d6dae2', roughness: 0.8 });
+          if (child.material && child.material.clone) {
+            child.material = child.material.clone();
+          }
+          child.castShadow = true;
+          child.receiveShadow = true;
         }
       });
       columnsGroup.add(column);
@@ -259,18 +267,17 @@ export function createMall(world, scene, assets = {}, materials = {}) {
         banner.position.set(x, height, z);
         banner.traverse((child) => {
           if (child.isMesh) {
-            const material = new MeshStandardMaterial({
-              color: '#ffffff',
-              roughness: 0.55,
-              metalness: 0.05,
-            });
-            if (bannerTexture) {
-              material.map = bannerTexture;
-              material.map.needsUpdate = true;
-            } else {
-              material.color = new Color('#f575ab');
+            if (child.material && child.material.clone) {
+              child.material = child.material.clone();
             }
-            child.material = material;
+            if (bannerTexture) {
+              child.material.map = bannerTexture;
+              child.material.needsUpdate = true;
+            } else if (child.material && child.material.color) {
+              child.material.color = new Color('#f575ab');
+            }
+            child.castShadow = false;
+            child.receiveShadow = false;
           }
         });
         bannersGroup.add(banner);
@@ -375,29 +382,34 @@ export function createMall(world, scene, assets = {}, materials = {}) {
 
     if (kioskFromAsset) {
       const scale = 1.8;
-      kioskFromAsset.name = 'mall-kiosk';
       kioskFromAsset.scale.set(scale, scale, scale);
-      kioskFromAsset.position.set(position.x, scale / 2, position.z);
       kioskFromAsset.traverse((child) => {
         if (child.isMesh) {
-          const clonedMaterial = child.material && child.material.clone ? child.material.clone() : null;
-          child.material = clonedMaterial ?? new MeshStandardMaterial({ color: '#f1b24d', roughness: 0.6 });
-          if (child.material.color) {
-            child.material.color = new Color('#f7c66f');
+          if (child.material && child.material.clone) {
+            child.material = child.material.clone();
           }
+          child.castShadow = true;
+          child.receiveShadow = true;
         }
       });
 
+      const prepared = wrapAssetForCollision(kioskFromAsset, 'mall-kiosk');
+      if (!prepared) return;
+
+      const { mesh: kioskMesh, size } = prepared;
+      kioskMesh.position.set(position.x, size.y / 2, position.z);
+
       const body = new Body({
         mass: 6,
-        shape: new CannonBox(new Vec3(scale / 2, scale / 2, scale / 2)),
-        position: new Vec3(position.x, scale / 2, position.z),
+        shape: new CannonBox(new Vec3(size.x / 2, size.y / 2, size.z / 2)),
+        position: new Vec3(kioskMesh.position.x, kioskMesh.position.y, kioskMesh.position.z),
         angularDamping: 0.9,
         linearDamping: 0.75,
       });
+      body.allowSleep = false;
 
       registerInteractable({
-        mesh: kioskFromAsset,
+        mesh: kioskMesh,
         body,
         label: 'Mall Kiosk',
         points: 120,
@@ -779,10 +791,73 @@ export function createMall(world, scene, assets = {}, materials = {}) {
     { key: 'kiosk', min: 6, max: 9, distance: 6, spawn: (position) => spawnFoodCart(position) },
     { key: 'patron', min: 16, max: 22, distance: 5, spawn: (position) => spawnMallPatron(position) },
   ];
-  const hazardSpawners = [spawnSecurityGate, spawnCleaningRobot, spawnMaintenanceBarrier];
+const hazardSpawners = [spawnSecurityGate, spawnCleaningRobot, spawnMaintenanceBarrier];
 
-  function populate() {
-    // Throw a bunch of everything into the scene on startup.
+const staticLayout = {
+  planters: [
+    { x: -18, z: -14 },
+    { x: -18, z: 14 },
+    { x: 18, z: -14 },
+    { x: 18, z: 14 },
+    { x: -6, z: -18 },
+    { x: 6, z: -18 },
+    { x: -6, z: 18 },
+    { x: 6, z: 18 },
+  ],
+  benches: [
+    { x: -14, z: 0 },
+    { x: 14, z: 0 },
+    { x: 0, z: -14 },
+    { x: 0, z: 14 },
+  ],
+  kiosks: [
+    { x: -10, z: -6 },
+    { x: 10, z: -6 },
+    { x: -10, z: 6 },
+    { x: 10, z: 6 },
+  ],
+  patrons: [
+    { x: -8, z: -2 },
+    { x: 8, z: -2 },
+    { x: -6, z: 8 },
+    { x: 6, z: 8 },
+  ],
+  hazards: {
+    barriers: [
+      { x: 0, z: -24 },
+      { x: 0, z: 24 },
+    ],
+    robots: [
+      { x: -12, z: 12 },
+      { x: 12, z: -12 },
+    ],
+  },
+};
+
+  function spawnStaticLayout() {
+    staticLayout.planters.forEach((entry) => {
+      spawnPlanter(new Vector3(entry.x, 0, entry.z));
+    });
+    staticLayout.benches.forEach((entry) => {
+      spawnBench(new Vector3(entry.x, 0, entry.z));
+    });
+    staticLayout.kiosks.forEach((entry) => {
+      spawnFoodCart(new Vector3(entry.x, 0, entry.z));
+    });
+    staticLayout.patrons.forEach((entry) => {
+      spawnMallPatron(new Vector3(entry.x, 0, entry.z));
+    });
+    staticLayout.hazards.barriers.forEach((entry) => {
+      spawnMaintenanceBarrier(new Vector3(entry.x, 0, entry.z));
+    });
+    staticLayout.hazards.robots.forEach((entry) => {
+      spawnCleaningRobot(new Vector3(entry.x, 0, entry.z));
+    });
+  }
+
+  function populate(options = {}) {
+    const mode = options.mode ?? (useMallAsset ? 'static' : 'default');
+
     if (!decorBuilt) {
       if (!useMallAsset) {
         buildMallDecor();
@@ -791,14 +866,16 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       }
       decorBuilt = true;
     }
+
     if (!hazardsPrepared) {
-      spawnMallBoundaries();
-      const hazardCount = randomInt(4, 6);
-      for (let i = 0; i < hazardCount; i += 1) {
-        const hazardSpawner = choose(hazardSpawners);
-        hazardSpawner();
+      if (!useMallAsset) {
+        spawnMallBoundaries();
       }
       hazardsPrepared = true;
+    }
+
+    if (mode === 'static' && useMallAsset) {
+      return;
     }
 
     for (const definition of spawnDefinitions) {
@@ -807,6 +884,11 @@ export function createMall(world, scene, assets = {}, materials = {}) {
         const position = findSpawnPosition(definition.distance);
         definition.spawn(position);
       }
+    }
+    const hazardCount = randomInt(4, 6);
+    for (let i = 0; i < hazardCount; i += 1) {
+      const hazardSpawner = choose(hazardSpawners);
+      hazardSpawner();
     }
   }
 

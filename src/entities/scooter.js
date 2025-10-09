@@ -1,8 +1,10 @@
 import {
+  AnimationMixer,
   Box3,
   BoxGeometry,
   CylinderGeometry,
   Group,
+  LoopRepeat,
   Mesh,
   MeshStandardMaterial,
   SphereGeometry,
@@ -12,8 +14,9 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
 
 // --> Entity: player scooter with grandma rider and visual assets.
-const SCOOTER_SCALE = 0.01;
-const RIDER_SCALE = 0.01;
+const TARGET_SCOOTER_SIZE = new Vector3(1.2, 1.55, 2.2);
+const TARGET_RIDER_HEIGHT = 1.68;
+const RIDER_SEAT_OFFSET = new Vector3(0, 0.7, -0.12);
 
 function buildFallbackScooterMesh() {
   const scooterGroup = new Group();
@@ -121,12 +124,12 @@ function buildFallbackScooterMesh() {
 
   const leftArm = new Mesh(armGeometry, primaryPaint);
   leftArm.position.set(0.18, 0.68, 0.2);
-  leftArm.rotation.set(-Math.PI / 5, 0, Math.PI / 4);
+  leftArm.rotation.set(-Math.PI / 2.4, Math.PI / 14, Math.PI / 8);
   grandma.add(leftArm);
 
   const rightArm = leftArm.clone();
   rightArm.position.x = -leftArm.position.x;
-  rightArm.rotation.set(-Math.PI / 5, 0, -Math.PI / 4);
+  rightArm.rotation.set(-Math.PI / 2.4, -Math.PI / 14, -Math.PI / 8);
   grandma.add(rightArm);
 
   const handGeometry = new SphereGeometry(0.07, 12, 12);
@@ -138,17 +141,30 @@ function buildFallbackScooterMesh() {
   rightHand.position.x = -leftHand.position.x;
   scooterGroup.add(rightHand);
 
-  const legGeometry = new CylinderGeometry(0.08, 0.08, 0.5, 16);
+  function createLeg(side) {
+    const legGroup = new Group();
+    const thigh = new Mesh(new CylinderGeometry(0.11, 0.12, 0.5, 16), fabricMaterial);
+    thigh.position.set(0, 0.1, 0.12);
+    thigh.rotation.x = Math.PI / 2.1;
+    legGroup.add(thigh);
 
-  const leftLeg = new Mesh(legGeometry, fabricMaterial);
-  leftLeg.position.set(0.12, -0.1, 0.05);
-  leftLeg.rotation.x = Math.PI / 9;
-  grandma.add(leftLeg);
+    const calf = new Mesh(new CylinderGeometry(0.09, 0.09, 0.42, 16), fabricMaterial);
+    calf.position.set(0, -0.12, 0.48);
+    calf.rotation.x = Math.PI / 2.8;
+    legGroup.add(calf);
 
-  const rightLeg = leftLeg.clone();
-  rightLeg.position.x = -leftLeg.position.x;
-  rightLeg.rotation.x = Math.PI / 6;
-  grandma.add(rightLeg);
+    const foot = new Mesh(new BoxGeometry(0.26, 0.1, 0.42), accentPaint);
+    foot.position.set(0, -0.28, 0.7);
+    foot.rotation.x = Math.PI / 14;
+    legGroup.add(foot);
+
+    legGroup.position.set(0.14 * side, -0.12, 0.12);
+    legGroup.rotation.y = side * Math.PI / 28;
+    return legGroup;
+  }
+
+  grandma.add(createLeg(1));
+  grandma.add(createLeg(-1));
 
   const cane = new Mesh(new CylinderGeometry(0.03, 0.03, 0.8, 12), new MeshStandardMaterial({ color: '#a77855', roughness: 0.9 }));
   cane.position.set(0.38, 0.22, 0.65);
@@ -186,60 +202,67 @@ function poseRiderForScooter(rider) {
   const rightHand = rider.getObjectByName('CC_Base_R_Hand_083');
 
   if (hip) {
-    hip.rotation.x = 0.25;
-    hip.position.y -= 0.01;
+    hip.rotation.x = 0.45;
+    hip.position.y -= 0.05;
   }
 
   if (spine) {
-    spine.rotation.x = -0.2;
+    spine.rotation.x = -0.35;
   }
 
   if (head) {
-    head.rotation.x = 0.05;
+    head.rotation.x = 0.12;
   }
 
   if (leftThigh && leftCalf && leftFoot) {
-    leftThigh.rotation.x = 1.3;
-    leftCalf.rotation.x = -1.4;
-    leftFoot.rotation.x = 0.3;
+    leftThigh.rotation.x = 1.65;
+    leftCalf.rotation.x = -1.85;
+    leftFoot.rotation.x = 0.55;
   }
 
   if (rightThigh && rightCalf && rightFoot) {
-    rightThigh.rotation.x = 1.3;
-    rightCalf.rotation.x = -1.4;
-    rightFoot.rotation.x = 0.3;
+    rightThigh.rotation.x = 1.65;
+    rightCalf.rotation.x = -1.85;
+    rightFoot.rotation.x = 0.55;
   }
 
   if (leftUpperArm && leftForearm && leftHand) {
-    leftUpperArm.rotation.x = -1.1;
-    leftUpperArm.rotation.z = 0.4;
-    leftForearm.rotation.x = -0.6;
-    leftHand.rotation.x = -0.1;
+    leftUpperArm.rotation.set(-1.35, 0.25, 0.55);
+    leftForearm.rotation.x = -0.85;
+    leftHand.rotation.x = -0.25;
   }
 
   if (rightUpperArm && rightForearm && rightHand) {
-    rightUpperArm.rotation.x = -1.1;
-    rightUpperArm.rotation.z = -0.4;
-    rightForearm.rotation.x = -0.6;
-    rightHand.rotation.x = -0.1;
+    rightUpperArm.rotation.set(-1.35, -0.25, -0.55);
+    rightForearm.rotation.x = -0.85;
+    rightHand.rotation.x = -0.25;
   }
 }
 
 function buildScooterMeshFromAssets(assets = {}) {
   if (!assets.scooterScene) {
-    return { group: buildFallbackScooterMesh() };
+    return { group: buildFallbackScooterMesh(), mixers: [] };
   }
 
   const group = new Group();
   group.name = 'scooter';
+  const mixers = [];
 
   const scooter = cloneSkeleton(assets.scooterScene);
-  scooter.scale.setScalar(SCOOTER_SCALE);
   scooter.rotation.y = Math.PI;
   scooter.position.set(0, 0, 0);
+  scooter.updateMatrixWorld(true);
+
   const scooterBounds = new Box3().setFromObject(scooter);
-  const scooterCenter = scooterBounds.getCenter(new Vector3());
-  scooter.position.sub(scooterCenter);
+  const scooterSize = scooterBounds.getSize(new Vector3());
+  const scale = scooterSize.z > 0 ? TARGET_SCOOTER_SIZE.z / scooterSize.z : 1;
+  scooter.scale.setScalar(scale);
+  scooter.updateMatrixWorld(true);
+
+  const scaledBounds = new Box3().setFromObject(scooter);
+  const scaledCenter = scaledBounds.getCenter(new Vector3());
+  scooter.position.sub(scaledCenter);
+  scooter.position.y -= scaledBounds.min.y;
   scooter.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
@@ -248,14 +271,35 @@ function buildScooterMeshFromAssets(assets = {}) {
   });
   group.add(scooter);
 
+  const scooterClips = Array.isArray(assets.scooterAnimations) ? assets.scooterAnimations : [];
+  if (scooterClips.length > 0) {
+    const scooterMixer = new AnimationMixer(scooter);
+    const clip = scooterClips[0];
+    const action = scooterMixer.clipAction(clip);
+    action.reset();
+    action.setLoop(LoopRepeat, Infinity);
+    action.play();
+    mixers.push(scooterMixer);
+  }
+
   if (assets.riderScene) {
     const rider = cloneSkeleton(assets.riderScene);
-    rider.scale.setScalar(RIDER_SCALE);
     rider.rotation.y = Math.PI;
-    rider.position.set(0, 0.6, -0.05);
+    rider.position.set(0, 0, 0);
+    rider.updateMatrixWorld(true);
+
     const riderBounds = new Box3().setFromObject(rider);
-    const riderCenter = riderBounds.getCenter(new Vector3());
-    rider.position.sub(new Vector3(riderCenter.x, riderBounds.min.y, riderCenter.z));
+    const riderSize = riderBounds.getSize(new Vector3());
+    const riderScale = riderSize.y > 0 ? TARGET_RIDER_HEIGHT / riderSize.y : 1;
+    rider.scale.setScalar(riderScale);
+    rider.updateMatrixWorld(true);
+
+    const scaledRiderBounds = new Box3().setFromObject(rider);
+    const riderCenter = scaledRiderBounds.getCenter(new Vector3());
+    rider.position.sub(riderCenter);
+    rider.position.y -= scaledRiderBounds.min.y;
+    rider.position.add(RIDER_SEAT_OFFSET);
+
     poseRiderForScooter(rider);
     rider.traverse((child) => {
       if (child.isMesh) {
@@ -264,9 +308,10 @@ function buildScooterMeshFromAssets(assets = {}) {
       }
     });
     group.add(rider);
+
   }
 
-  return { group };
+  return { group, mixers };
 }
 
 export function createScooter(world, material, assets = {}) {
@@ -289,7 +334,7 @@ export function createScooter(world, material, assets = {}) {
   }
   world.addBody(body);
 
-  const { group } = buildScooterMeshFromAssets(assets);
+  const { group, mixers } = buildScooterMeshFromAssets(assets);
   const mesh = group;
 
   return {
@@ -298,6 +343,11 @@ export function createScooter(world, material, assets = {}) {
     sync(delta = 0) {
       mesh.position.copy(body.position);
       mesh.quaternion.copy(body.quaternion);
+      if (delta > 0 && Array.isArray(mixers)) {
+        for (const mixer of mixers) {
+          mixer.update(delta);
+        }
+      }
     },
   };
 }

@@ -12,55 +12,73 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // --> Core Environment: I pieced this together from a few tutorials so the scene actually shows up.
-export function createEnvironment(canvas, assets = {}) {
-  const renderer = new WebGLRenderer({ canvas, antialias: true });
+export function createEnvironment(canvas, assets = {}, options = {}) {
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   const scene = new Scene();
-  scene.background = new Color('#14181c');
+  scene.background = new Color('#dfe6ef');
 
   // Camera that sits kind of behind the scooter.
-  const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-  camera.position.set(6, 4, 8);
+  const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(50, 28, 50);
   scene.add(camera);
 
-  // Simple lights so things aren't totally dark.
-  const ambient = new AmbientLight(0xffffff, 0.4);
+  renderer.domElement.style.cursor = 'grab';
+  renderer.domElement.style.touchAction = 'none';
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2.05;
+  controls.target.set(0, 2, 0);
+  controls.enabled = false;
+  controls.update();
+  controls.addEventListener('start', () => {
+    renderer.domElement.style.cursor = 'grabbing';
+  });
+  controls.addEventListener('end', () => {
+    renderer.domElement.style.cursor = 'grab';
+  });
+
+  // Bright, neutral lights so assets pop against the background.
+  const ambient = new AmbientLight(0xffffff, 0.7);
   scene.add(ambient);
 
-  const ceilingGlow = new HemisphereLight(0x4f6470, 0x111518, 0.35);
+  const ceilingGlow = new HemisphereLight(0xf1f5fd, 0xcfd8e3, 0.6);
   scene.add(ceilingGlow);
 
-  const sun = new DirectionalLight(0xffffff, 0.8);
-  sun.position.set(5, 10, 4);
+  const sun = new DirectionalLight(0xfff5dd, 1.2);
+  sun.position.set(12, 24, 10);
+  sun.castShadow = true;
   scene.add(sun);
 
   // Flat ground so the physics bodies have something to collide with.
-  const groundMaterial = assets.floorTexture
-    ? new MeshStandardMaterial({
-        color: '#d2d6dc',
-        metalness: 0.05,
-        roughness: 0.85,
-        map: assets.floorTexture,
-      })
-    : new MeshStandardMaterial({ color: '#2f3b40' });
+  const groundMaterial = new MeshStandardMaterial({
+    color: '#d1d9e6',
+    metalness: 0.02,
+    roughness: 0.75,
+  });
 
-  const ground = new Mesh(
-    new PlaneGeometry(160, 160),
-    groundMaterial,
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  ground.position.y = -0.02;
-  scene.add(ground);
+  let ground = null;
+  if (!assets.mallScene) {
+    ground = new Mesh(
+      new PlaneGeometry(160, 160),
+      groundMaterial,
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    ground.position.y = -0.02;
+    scene.add(ground);
+  }
 
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
     mall.name = 'shopping-mall';
-    const mallScale = 0.001;
+    const mallScale = 1.35;
     mall.scale.setScalar(mallScale);
     mall.traverse((child) => {
       if (child.isMesh) {
@@ -82,22 +100,24 @@ export function createEnvironment(canvas, assets = {}) {
     const bounds = new Box3().setFromObject(mall);
     const center = bounds.getCenter(new Vector3());
     const min = bounds.min.clone();
-    mall.position.set(-center.x, ground.position.y - min.y, -center.z);
+    const groundOffset = ground ? ground.position.y : 0;
+    mall.position.set(-center.x, groundOffset - min.y, -center.z);
     mall.updateMatrixWorld(true);
     scene.add(mall);
   }
 
-  const cameraOffset = new Vector3(-6, 4, 8);
+  const cameraOffset = new Vector3(-14, 8, 22);
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();
+  let cameraMode = 'orbit';
 
   function updateCameraFollow(target) {
-    // This keeps the camera floating over the scooter. It looks fancy but it's just lerp.
+    if (cameraMode !== 'follow' || !target) return;
     cameraTarget.copy(target.position);
     tmpOffset.copy(cameraOffset).applyQuaternion(target.quaternion);
     desiredCamera.copy(target.position).add(tmpOffset);
-    camera.position.lerp(desiredCamera, 0.1);
+    camera.position.lerp(desiredCamera, 0.15);
     camera.lookAt(cameraTarget);
   }
 
@@ -108,12 +128,92 @@ export function createEnvironment(canvas, assets = {}) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  const brightPalette = {
+    background: '#dfe6ef',
+    ambientColor: '#ffffff',
+    ambientIntensity: 0.7,
+    hemisphereSky: '#f3f7fe',
+    hemisphereGround: '#c9d6e6',
+    hemisphereIntensity: 0.6,
+    sunColor: '#fff3db',
+    sunIntensity: 1.2,
+    groundColor: '#d1d9e6',
+  };
+
+  const darkPalette = {
+    background: '#0b1014',
+    ambientColor: '#1d2939',
+    ambientIntensity: 0.6,
+    hemisphereSky: '#1e293b',
+    hemisphereGround: '#0b1014',
+    hemisphereIntensity: 0.32,
+    sunColor: '#94a3b8',
+    sunIntensity: 0.85,
+    groundColor: '#111c27',
+  };
+
+  function applyPalette(palette) {
+    scene.background.set(palette.background);
+    ambient.color.set(palette.ambientColor);
+    ambient.intensity = palette.ambientIntensity;
+    ceilingGlow.color.set(palette.hemisphereSky);
+    ceilingGlow.groundColor.set(palette.hemisphereGround);
+    ceilingGlow.intensity = palette.hemisphereIntensity;
+    sun.color.set(palette.sunColor);
+    sun.intensity = palette.sunIntensity;
+
+    if (ground) {
+      groundMaterial.color.set(palette.groundColor);
+      groundMaterial.needsUpdate = true;
+    }
+  }
+
+  let removeColorSchemeListener = null;
+  const palettes = {
+    light: brightPalette,
+    dark: darkPalette,
+  };
+  let currentPalette = palettes.light;
+
+  function setColorMode(mode) {
+    const nextPalette = palettes[mode] ?? palettes.light;
+    currentPalette = nextPalette;
+    applyPalette(currentPalette);
+  }
+
+  setColorMode(options.theme);
+
+  function setCameraMode(mode) {
+    cameraMode = mode === 'follow' ? 'follow' : 'orbit';
+    controls.enabled = cameraMode === 'orbit';
+    if (controls.enabled) {
+      controls.update();
+    }
+  }
+
+  function updateCamera(target) {
+    if (cameraMode === 'orbit') {
+      controls.update();
+    } else {
+      updateCameraFollow(target);
+    }
+  }
+
   return {
     renderer,
     scene,
     camera,
     ground,
+    setCameraMode,
+    updateCamera,
     updateCameraFollow,
     handleResize,
+    controls,
+    setColorMode,
+    dispose: () => {
+      if (removeColorSchemeListener) {
+        removeColorSchemeListener();
+      }
+    },
   };
 }

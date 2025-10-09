@@ -82,8 +82,8 @@ Remove-Item -Recurse -Force node_modules, dist  # Windows PowerShell
 # or: make clean
 
 # Docker images (after npm run build)
-docker build -t Grand-Theft-Scooter .
-docker run --rm -p 8080:80 Grand-Theft-Scooter
+docker build -t grand-theft-scooter .
+docker run --rm -p 8080:80 grand-theft-scooter
 # or: make docker-build && make docker-run
 
 # Testing & linting (currently stubbed)
@@ -101,7 +101,7 @@ make doctor         # ensure-deps + make check
 - **Setting**: A procedurally assembled 3D shopping mall full of kiosks, displays, and crowds to weave through at high speed.
 - **Objective**: Rack up points by colliding with interactive props, food stands, benches, and other environmental objects.
 - **High-Value Targets**: Running over unsuspecting mall-goers yields the biggest score multipliers—just like a mobility-scooter take on *Hungry Shark*.
-- **Risk vs. Reward**: String together combos without wiping out to unlock higher tiers of chaos; missed opportunities or crashes reset your multiplier.
+- **Controls**: Simple keyboard controls for acceleration, braking, and steering. Combo system rewards chaining collisions without stopping.
 
 ## Troubleshooting
 ### General

@@ -1,4 +1,4 @@
-import { Clock } from 'three';
+import { Clock, Vector3 } from 'three';
 import { Vec3 } from 'cannon-es';
 
 // --> Game Bootstrap: this is basically the glue code I wrote to bolt all the pieces together.
@@ -9,7 +9,7 @@ import { createMall } from './entities/mall';
 import { createScooter } from './entities/scooter';
 import { createGameOverOverlay } from './hud/gameOver';
 import { createKeyboardControls } from './input/keyboard';
-import { requestControlScheme } from './input/controlPrompt';
+import { createSettingsManager } from './input/controlPrompt';
 import { loadMallAssets } from './core/assets';
 
 function updateHudHints(layout) {
@@ -20,42 +20,109 @@ function updateHudHints(layout) {
   if (!accelerateEl || !steerEl || !brakeEl) return;
 
   if (layout === 'arrows') {
-    accelerateEl.textContent = 'Tap ↑ to accelerate (W also works)';
-    steerEl.textContent = 'Steer with ← / → (A / D also work)';
-    brakeEl.textContent = 'Hold ↓ to brake or back up (S also works)';
-  } else {
-    accelerateEl.textContent = 'Tap W to accelerate (↑ also works)';
-    steerEl.textContent = 'Steer with A / D (arrow keys also work)';
-    brakeEl.textContent = 'Hold S to brake or back up (↓ also works)';
+    accelerateEl.textContent = 'Tap ↑ to accelerate';
+    steerEl.textContent = 'Steer with ← / →';
+    brakeEl.textContent = 'Hold ↓ to brake or back up';
+    return;
   }
+
+  if (layout === 'wasd') {
+    accelerateEl.textContent = 'Tap W to accelerate';
+    steerEl.textContent = 'Steer with A / D';
+    brakeEl.textContent = 'Hold S to brake or back up';
+    return;
+  }
+
+  accelerateEl.textContent = 'Tap W or ↑ to accelerate';
+  steerEl.textContent = 'Steer with A / D or the arrow keys';
+  brakeEl.textContent = 'Hold S or ↓ to brake or back up';
 }
 
 async function startGame() {
-  // Ask the player how they want to drive. I just use window.confirm because it's easy.
-  const layout = await requestControlScheme();
   const canvas = document.getElementById('app');
+  if (!canvas) {
+    throw new Error('Expected to find a canvas with id="app"');
+  }
+
+  let controls = null;
+  let scoreboard = null;
+  let cameraMode = 'orbit';
+  let activeLayout = 'wasd';
+  let applyEnvironmentTheme = () => {};
+
+  const settings = createSettingsManager({
+    onControlSchemeChange: (nextLayout) => {
+      activeLayout = nextLayout;
+      if (controls) {
+        controls.setLayout(nextLayout);
+      }
+      updateHudHints(nextLayout);
+      refreshCameraMessage();
+    },
+    onThemeChange: (themeMode) => {
+      applyEnvironmentTheme(themeMode);
+    },
+  });
+
+  activeLayout = settings.getControlScheme();
+  updateHudHints(activeLayout);
 
   // Set up the Three.js stuff and Cannon physics. Most of this came from docs.
   const assets = await loadMallAssets();
-  const { renderer, scene, camera, updateCameraFollow, handleResize } = createEnvironment(canvas, assets);
+  const {
+    renderer,
+    scene,
+    camera,
+    setCameraMode,
+    updateCamera,
+    handleResize,
+    controls: orbitControls,
+    setColorMode,
+  } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
+  applyEnvironmentTheme = setColorMode;
+  applyEnvironmentTheme(settings.getTheme());
+
   const { world, materials } = createPhysicsWorld();
-  const controls = createKeyboardControls(layout);
-  const scoreboard = createScoreboard();
-  scoreboard.setMessage('Rack up points by clipping mall patrons, but dodge gates, barriers, cleaning bots, and walls.');
+  controls = createKeyboardControls(activeLayout);
+  scoreboard = createScoreboard();
   const gameOverOverlay = createGameOverOverlay(() => {
     window.location.reload();
   });
   const scooter = createScooter(world, materials.player, assets);
   scene.add(scooter.mesh);
-
+  setCameraMode(cameraMode);
   const mall = createMall(world, scene, assets, materials);
-  mall.populate();
-  updateHudHints(layout);
+  mall.populate({ mode: assets.mallScene ? 'static' : 'default' });
+  updateHudHints(activeLayout);
 
   const forwardVector = new Vec3(0, 0, -1);
   const tmpForce = new Vec3();
   const clock = new Clock();
+  const cameraForward = new Vector3();
+  const cameraRight = new Vector3();
+  const cameraMove = new Vector3();
+  const worldUp = new Vector3(0, 1, 0);
   let isGameOver = false;
+
+  function refreshCameraMessage() {
+    if (!scoreboard || isGameOver) return;
+    const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
+    if (cameraMode === 'orbit') {
+      scoreboard.setMessage(`Free camera active. Use ${schemeLabel} to glide the camera. Drag to look around, scroll to zoom, press C to get back on the scooter. Press Esc for settings.`);
+    } else {
+      scoreboard.setMessage(`Follow cam active. Use ${schemeLabel} to drive the scooter. Press C to switch to the free camera. Press Esc for settings.`);
+    }
+  }
+
+  refreshCameraMessage();
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'c') {
+      cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
+      setCameraMode(cameraMode);
+      refreshCameraMessage();
+    }
+  });
 
   function triggerGameOver(reason) {
     if (isGameOver) return;
@@ -79,32 +146,67 @@ async function startGame() {
     }
   });
 
-  function updatePhysics(delta) {
+  function updatePhysics(delta, input) {
     if (isGameOver) return;
-    // Read keyboard and push the scooter around. Numbers are mostly guess-and-check.
-    const { forward, backward, left, right } = controls.read();
-    const drive = (forward ? 1 : 0) - (backward ? 1 : 0);
-    const steer = (right ? 1 : 0) - (left ? 1 : 0);
+    if (cameraMode === 'follow') {
+      const drive = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+      const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
 
-    if (drive !== 0) {
-      forwardVector.set(0, 0, -1);
-      scooter.body.quaternion.vmult(forwardVector, forwardVector);
-      tmpForce.copy(forwardVector).scale(75 * drive);
-      scooter.body.applyForce(tmpForce, scooter.body.position);
-    }
+      if (drive !== 0) {
+        forwardVector.set(0, 0, -1);
+        scooter.body.quaternion.vmult(forwardVector, forwardVector);
+        tmpForce.copy(forwardVector).scale(75 * drive);
+        scooter.body.applyForce(tmpForce, scooter.body.position);
+      }
 
-    if (steer !== 0) {
-      scooter.body.angularVelocity.y -= steer * delta * 5;
+      if (steer !== 0) {
+        scooter.body.angularVelocity.y -= steer * delta * 5;
+      }
     }
 
     stepPhysics(world, delta);
+  }
+
+  function handleFreeCameraMovement(delta, input) {
+    if (isGameOver || cameraMode !== 'orbit') return;
+
+    const moveZ = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+    const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    if (moveZ === 0 && moveX === 0) return;
+
+    camera.getWorldDirection(cameraForward);
+    cameraForward.y = 0;
+    if (cameraForward.lengthSq() < 1e-6) {
+      cameraForward.set(0, 0, -1);
+    } else {
+      cameraForward.normalize();
+    }
+
+    cameraRight.copy(cameraForward).cross(worldUp);
+    cameraRight.y = 0;
+    if (cameraRight.lengthSq() < 1e-6) {
+      cameraRight.set(1, 0, 0);
+    } else {
+      cameraRight.normalize();
+    }
+
+    cameraMove.set(0, 0, 0);
+    cameraMove.addScaledVector(cameraForward, moveZ);
+    cameraMove.addScaledVector(cameraRight, moveX);
+
+    if (cameraMove.lengthSq() === 0) return;
+
+    cameraMove.normalize().multiplyScalar(delta * 22);
+    camera.position.add(cameraMove);
+    orbitControls.target.add(cameraMove);
+    orbitControls.update();
   }
 
   function syncGraphics(delta) {
     if (isGameOver) return;
     scooter.sync(delta);
     mall.sync(delta);
-    updateCameraFollow(scooter.mesh);
+    updateCamera(scooter.mesh);
     // Finally draw everything. If this lags I probably added too many props.
     renderer.render(scene, camera);
   }
@@ -112,7 +214,9 @@ async function startGame() {
   function loop() {
     if (isGameOver) return;
     const delta = clock.getDelta();
-    updatePhysics(delta);
+    const inputState = controls.read();
+    updatePhysics(delta, inputState);
+    handleFreeCameraMovement(delta, inputState);
     syncGraphics(delta);
     requestAnimationFrame(loop);
   }
