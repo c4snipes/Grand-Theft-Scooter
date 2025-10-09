@@ -7,7 +7,6 @@ import {
   Color,
   CylinderGeometry,
   Group,
-  LoopRepeat,
   Mesh,
   MeshStandardMaterial,
   PlaneGeometry,
@@ -135,9 +134,15 @@ export function createMall(world, scene, assets = {}, materials = {}) {
     return record;
   }
 
-  function isPositionFree(pos, minDistance) {
+  function isPositionFree(pos, minDistance, options = {}) {
     const minDistanceSq = minDistance * minDistance;
+    const ignoreBodies = Array.isArray(options.ignoreBodies)
+      ? new Set(options.ignoreBodies)
+      : options.ignoreBodies instanceof Set
+        ? options.ignoreBodies
+        : null;
     for (const record of interactables) {
+      if (ignoreBodies && ignoreBodies.has(record.body)) continue;
       const dx = record.body.position.x - pos.x;
       const dz = record.body.position.z - pos.z;
       if (dx * dx + dz * dz < minDistanceSq) {
@@ -167,6 +172,59 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       0,
       randomRange(-mallBounds.halfExtent, mallBounds.halfExtent),
     );
+  }
+
+  function clampToPlayableArea(candidate, padding = 2.5) {
+    const clamped = candidate.clone();
+    const maxExtent = Math.max(2, mallBounds.halfExtent - padding);
+    clamped.x = Math.min(maxExtent, Math.max(-maxExtent, clamped.x));
+    clamped.z = Math.min(maxExtent, Math.max(-maxExtent, clamped.z));
+    clamped.y = 0;
+    return clamped;
+  }
+
+  function enforceCentralClearance(candidate, clearance) {
+    const minimumRadius = Math.max(0, clearance);
+    const planarDistance = Math.hypot(candidate.x, candidate.z);
+    if (planarDistance < minimumRadius) {
+      const targetRadius = minimumRadius;
+      const safeAngle = planarDistance < 1e-4 ? Math.random() * Math.PI * 2 : Math.atan2(candidate.z, candidate.x);
+      candidate.x = Math.cos(safeAngle) * targetRadius;
+      candidate.z = Math.sin(safeAngle) * targetRadius;
+    }
+    return candidate;
+  }
+
+  function findNearestNavigablePoint(target, minDistance = 4, options = {}) {
+    const ignoreBodies = options.ignoreBodies ?? null;
+    const clearance = options.clearance ?? 1.5;
+    const padding = options.padding ?? Math.max(2.5, minDistance * 0.6);
+    const searchRadii = options.searchRadii ?? [
+      minDistance,
+      minDistance * 1.5,
+      minDistance * 2,
+      minDistance * 2.5,
+      minDistance * 3,
+    ];
+
+    const base = enforceCentralClearance(clampToPlayableArea(target, padding), mallBounds.clearRadius + clearance);
+    if (isPositionFree(base, minDistance, { ignoreBodies })) {
+      return base;
+    }
+
+    for (const radius of searchRadii) {
+      const steps = Math.max(10, Math.round(radius * 4));
+      for (let i = 0; i < steps; i += 1) {
+        const angle = (i / steps) * Math.PI * 2;
+        const offset = new Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        const candidate = enforceCentralClearance(clampToPlayableArea(base.clone().add(offset), padding), mallBounds.clearRadius + clearance);
+        if (isPositionFree(candidate, minDistance, { ignoreBodies })) {
+          return candidate;
+        }
+      }
+    }
+
+    return findSpawnPosition(minDistance);
   }
 
   function buildMallDecor() {
@@ -670,12 +728,14 @@ export function createMall(world, scene, assets = {}, materials = {}) {
 
   function spawnMallPatron(positionOverride) {
     // Squishy mall patrons with random outfits (sorry, NPCs!).
-    const position = positionOverride ?? findSpawnPosition(5);
+    const desiredPosition = positionOverride ?? findSpawnPosition(5);
+    const position = findNearestNavigablePoint(desiredPosition, 4.5);
     const group = new Group();
     group.name = 'mall-patron';
 
     const centerY = 0.9;
     group.position.set(position.x, centerY, position.z);
+    group.rotation.y = randomRange(-Math.PI, Math.PI);
 
     const npcAssetPool = [];
     if (Array.isArray(assets.animatedMenVariants)) {
@@ -731,12 +791,15 @@ export function createMall(world, scene, assets = {}, materials = {}) {
 
       const clips = choiceAsset.animations ?? [];
       if (clips.length > 0) {
-        mixer = new AnimationMixer(actor);
-        const clip = choose(clips);
-        const action = mixer.clipAction(clip);
+        const previewMixer = new AnimationMixer(actor);
+        const clip = clips.find((entry) => typeof entry.name === 'string' && /idle|stand/i.test(entry.name))
+          ?? clips[0];
+        const action = previewMixer.clipAction(clip);
         action.reset();
-        action.setLoop(LoopRepeat, Infinity);
         action.play();
+        const sampleTime = Math.random() * Math.max(clip.duration ?? 0.16, 0.16);
+        previewMixer.update(sampleTime);
+        previewMixer.stopAllAction();
       }
       npcLabel = choiceAsset.label ?? 'Mall Patron';
     } else {
@@ -992,21 +1055,25 @@ const staticLayout = {
     populate,
     sync(delta) {
       for (const record of interactables) {
-        record.mesh.position.set(record.body.position.x, record.body.position.y, record.body.position.z);
-      record.mesh.quaternion.set(
-        record.body.quaternion.x,
-        record.body.quaternion.y,
-        record.body.quaternion.z,
-        record.body.quaternion.w,
-      );
-      if (record.mixer && !record.hit) {
-        record.mixer.update(delta);
+        record.mesh.position.set(
+          record.body.position.x,
+          record.body.position.y,
+          record.body.position.z,
+        );
+        record.mesh.quaternion.set(
+          record.body.quaternion.x,
+          record.body.quaternion.y,
+          record.body.quaternion.z,
+          record.body.quaternion.w,
+        );
+        if (record.mixer && !record.hit) {
+          record.mixer.update(delta);
+        }
       }
-    }
 
-    for (const actor of dynamicActors) {
-      if (!actor.hit && actor.onUpdate) {
-        actor.onUpdate(delta, actor);
+      for (const actor of dynamicActors) {
+        if (!actor.hit && actor.onUpdate) {
+          actor.onUpdate(delta, actor);
         }
       }
     },
@@ -1027,6 +1094,10 @@ const staticLayout = {
         label: hit.label ?? 'Hit',
         points: hit.points ?? 0,
       };
+    },
+    findNearestNavigablePoint,
+    isPositionNavigable(position, minDistance = 4, options = {}) {
+      return isPositionFree(position, minDistance, options);
     },
   };
 }

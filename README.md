@@ -36,18 +36,18 @@ If GNU Make is installed, the same flow is available through convenience targets
 ```sh
 make help          # show command reference
 make dev           # start dev server on $(HOST):$(PORT) (defaults 0.0.0.0:5173)
-make docker        # docker compose -f docker/docker-compose.dev.yml up
+make docker        # docker compose -f .docker-compose.yml up
 make stop-all      # stop Vite and docker-compose processes
 make ensure-deps   # verify tooling, install deps, run baseline checks
 make setup         # runs ensure-deps then npm ci
 make assets        # confirm required GLTF/texture assets exist
 make build         # npm run build
-make preview       # npm run preview -- --host 0.0.0.0 --port 8080
-make docker-dev    # docker compose -f docker/docker-compose.dev.yml up --build
-make docker-logs   # docker compose -f docker/docker-compose.dev.yml logs -f
-make docker-shell  # docker compose -f docker/docker-compose.dev.yml exec web sh
-make up            # docker compose -f docker/docker-compose.dev.yml up -d
-make down          # docker compose -f docker/docker-compose.dev.yml down
+make preview       # npm run preview -- --host 0.0.0.0 --port 5173
+make docker-dev    # docker compose -f .docker-compose.yml up --build
+make docker-logs   # docker compose -f .docker-compose.yml logs -f
+make docker-shell  # docker compose -f .docker-compose.yml exec web sh
+make up            # docker compose -f .docker-compose.yml up -d
+make down          # docker compose -f .docker-compose.yml down
 make clean         # remove node_modules/dist/build/.output and stop containers
 make docker-build  # docker build -f docker/Dockerfile -t grand-theft-scooter .
 make docker-run    # docker run --rm -p 8080:80 grand-theft-scooter
@@ -58,9 +58,9 @@ make docker-push   # push tagged image to $(REPO)
 ### Develop with Docker
 Run the project without installing Node locally:
 ```sh
-docker compose -f docker/docker-compose.dev.yml up --build
+docker compose -f .docker-compose.yml up --build
 # Press Ctrl+C to stop the stack when finished
-docker compose -f docker/docker-compose.dev.yml down
+docker compose -f .docker-compose.yml down
 ```
 Make wrappers (`make docker`, `make docker-dev`, `make up`, `make down`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
 
@@ -82,8 +82,8 @@ Run the `gltf-transform` optimizer in a reproducible way:
 npm run build
 # or: make build
 
-# Preview the production build (port 8080)
-npm run preview -- --host 0.0.0.0 --port 8080
+# Preview the production build (port 5173)
+npm run preview -- --host 0.0.0.0 --port 5173
 # or: make preview
 
 # Clean workspace artifacts
@@ -102,7 +102,8 @@ docker run --rm -p 8080:80 grand-theft-scooter
 - **Setting**: A procedurally assembled 3D shopping mall full of kiosks, displays, and crowds to weave through at high speed.
 - **Objective**: Rack up points by colliding with interactive props, food stands, benches, and other environmental objects.
 - **High-Value Targets**: Running over unsuspecting mall-goers yields the biggest score multipliers—just like a mobility-scooter take on *Hungry Shark*.
-- **Controls**: Simple keyboard controls for acceleration, braking, and steering. Combo system rewards chaining collisions without stopping.
+- **Hazards**: Chase points by bowling over mall patrons riding the new character models, but colliding with security gates, maintenance barriers, cleaning robots, or the mall walls will end the run instantly.
+- **Controls**: Steer with WASD or the arrow keys. Tap `R` to open the placement guide (hold `Shift+R` for an instant safe respawn), press `C` to swap between follow and free cameras, and hit `I` to toggle the telemetry dashboard.
 
 ## Troubleshooting
 ### General

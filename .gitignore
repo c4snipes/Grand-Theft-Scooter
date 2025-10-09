@@ -5,6 +5,7 @@ node_modules
 dist
 build
 .output
+.codacy
 # AudioCache can be rebuilt from sources
 AudioCache/
 
@@ -83,3 +84,7 @@ coverage/
 
 # Binary / build artifacts
 *.exe
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

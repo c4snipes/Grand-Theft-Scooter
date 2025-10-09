@@ -1,16 +1,15 @@
 SHELL := /bin/sh
 PKG ?= npm
 PORT ?= 5173
-PREVIEW_PORT ?= 8080
 HOST ?= 0.0.0.0
 IMAGE ?= grand-theft-scooter
 REGISTRY ?= ghcr.io
 REPO ?= $(REGISTRY)/c4snipes/grand-theft-scooter
-DC_DEV ?= docker/docker-compose.dev.yml
+DC_DEV ?= .docker-compose.yml
 SERVICE ?= web
 DOCKER_COMPOSE ?= docker compose -f $(DC_DEV)
 DEV_FLAGS ?= --host $(HOST) --port $(PORT)
-PREVIEW_FLAGS ?= --host $(HOST) --port $(PREVIEW_PORT)
+PREVIEW_FLAGS ?= --host $(HOST) --port $(PORT)
 
 DEFAULT_GOAL := help
 
@@ -26,7 +25,7 @@ help:
 	@printf '  make ensure-deps   Verify Node/npm and optional tools\n'
 	@printf '  make setup         Install dependencies (npm ci)\n'
 	@printf '  make assets        Confirm GLTF and texture assets are present\n'
-	@printf '  make preview       Preview production build on $(HOST):$(PREVIEW_PORT)\n'
+	@printf '  make preview       Preview production build on $(HOST):$(PORT)\n'
 	@printf '  make build         Build production assets\n'
 	@printf '  make clean         Remove node_modules and dist\n'
 	@printf '  make check         Run lint, typecheck, and tests\n'

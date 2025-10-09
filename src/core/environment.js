@@ -81,7 +81,13 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     mall.name = 'shopping-mall';
     const mallScale = 10;
     mall.scale.setScalar(mallScale);
+    const characterNamePattern = /character|people|person|crowd|npc|male|female|man|woman|boy|girl/;
     mall.traverse((child) => {
+      const name = typeof child.name === 'string' ? child.name.toLowerCase() : '';
+      if (name && characterNamePattern.test(name)) {
+        child.visible = false;
+        return;
+      }
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
