@@ -36,13 +36,48 @@
 
 - **Your Evaluation:** {Issues/errors/your decision:done/discard/revise prompt}
 
-- **Iteration 2:**  
-  - **Goal/Task/Rationale:**  
+- **Iteration 2:Set Up and Assets**  
+  - **Goal/Task/Rationale:Base Build of Game**  
       
       
   - **What do you do?**   
     {If you ask AI, provide your prompt and link. If you fix it yourself, describe how you do it.}  
-       
+       Added assets from Pizza place as base model. Created environment.
+          -Cole S.
+      
+- **Response/Result:**
+
+
+  
+
+- **Your Evaluation:** {Issues/errors/your decision:done/discard/revise prompt}
+
+
+ **Iteration 3:Physics**  
+  - **Goal/Task/Rationale:Design phsyics model**  
+      
+      
+  - **What do you do?**   
+    {If you ask AI, provide your prompt and link. If you fix it yourself, describe how you do it.}  
+       Added physics files and ran three.js physics engine to compile and run gmae interactions.
+          -Cole S.
+      
+- **Response/Result:**
+
+
+  
+
+- **Your Evaluation:** {Issues/errors/your decision:done/discard/revise prompt}
+
+
+ **Iteration 4:Making it run on Windows**  
+  - **Goal/Task/Rationale:Built on Mac**  
+      
+      
+  - **What do you do?**   
+    {If you ask AI, provide your prompt and link. If you fix it yourself, describe how you do it.}  
+       Created extensions and securities to make the game run on Windows since the base was built on a Mac system.
+            -Cole S.
       
 - **Response/Result:**
 
