@@ -42,7 +42,7 @@
       
   - **What do you do?**   
     {If you ask AI, provide your prompt and link. If you fix it yourself, describe how you do it.}  
-       Added assets from Pizza place as base model. Created environment.
+       Added assets from Poly.Pizza and Sketchfab as base models. Created environment.
           -Cole S.
       
 - **Response/Result:**
