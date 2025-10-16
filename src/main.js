@@ -20,7 +20,7 @@ import { createScooter } from './entities/scooter';
 import { createGameOverOverlay } from './hud/gameOver';
 import { createKeyboardControls } from './input/keyboard';
 import { createSettingsManager } from './input/controlPrompt';
-import { loadMallAssets } from './core/assets';
+import { loadMallAssets, loadNpcPacks } from './core/assets';
 import { assertDefined, invariant } from './core/assert';
 
 function updateHudHints(layout) {
@@ -60,6 +60,13 @@ async function startGame() {
   let applyEnvironmentTheme = () => {};
   let isGameOver = false;
   let spawnSelector = null;
+
+  // Small loading overlay is visible by default; hide once assets + scene are ready
+  const loadingEl = document.querySelector('[data-loading]');
+  function setLoadingVisible(visible) {
+    if (!loadingEl) return;
+    loadingEl.hidden = !visible;
+  }
 
   function isSpawnSelectorActive() {
     return Boolean(spawnSelector && typeof spawnSelector.isActive === 'function' && spawnSelector.isActive());
@@ -563,10 +570,24 @@ async function startGame() {
     orbitControls.update();
   }
 
+  // Hide loading overlay right before interactive scooter spawn
+  setLoadingVisible(false);
+
   function syncGraphics(delta) {
     scooter.sync(delta);
     mall.sync(delta);
     updateCamera(scooter.mesh);
+
+  // Kick off lazy NPC pack loading to improve startup and upgrade future spawns
+  loadNpcPacks().then(({ animatedMenVariants, animatedWomenVariants }) => {
+    assets.animatedMenVariants = animatedMenVariants;
+    assets.animatedWomenVariants = animatedWomenVariants;
+    assets.npcPacksReady = true;
+    if (scoreboard) {
+      scoreboard.setMessage('Character packs loaded. Press R to reset and see high-fidelity NPCs.', { duration: 5200 });
+    }
+  }).catch((err) => console.warn('[assets] Failed to load NPC packs:', err));
+
     renderer.render(scene, camera);
   }
 

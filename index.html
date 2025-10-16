@@ -18,6 +18,9 @@
     <!-- body -> canvas#app (Three.js render surface) -->
     <canvas id="app" aria-label="Grand Theft Scooter gameplay canvas"></canvas>
 
+    <!-- lightweight loading overlay to ensure assets finish before user spawns -->
+    <div class="loading" data-loading aria-live="polite">Loading assets…</div>
+
     <!-- body -> div.hud (static helper overlay tree) -->
     <div class="hud" role="presentation">
       <!-- hud -> section.hud__panel (session stats + tips) -->

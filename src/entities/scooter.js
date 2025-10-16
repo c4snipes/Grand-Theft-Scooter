@@ -399,11 +399,6 @@ function buildScooterMeshFromAssets(assets = {}) {
 
   const group = new Group();
 
-  // Collect wheel/steering parts from the imported scooter and compute radii
-  const wheelsMetaFromAsset = findWheelsAndSteering(scooter);
-  wheelsMetaFromAsset.frontRadius = computeWheelRadius(wheelsMetaFromAsset.frontWheel) ?? wheelsMetaFromAsset.frontRadius ?? null;
-  wheelsMetaFromAsset.rearRadius = computeWheelRadius(wheelsMetaFromAsset.rearWheel) ?? wheelsMetaFromAsset.rearRadius ?? null;
-  group.userData.wheels = wheelsMetaFromAsset;
 
   group.name = 'scooter';
   const mixers = [];
@@ -412,32 +407,39 @@ function buildScooterMeshFromAssets(assets = {}) {
     assets.scooterScene && typeof assets.scooterScene.traverse === 'function',
     'Expected assets.scooterScene to be a THREE.Object3D.',
   );
-  const scooter = cloneSkeleton(assets.scooterScene);
-  scooter.rotation.y = Math.PI;
-  scooter.position.set(0, 0, 0);
-  scooter.updateMatrixWorld(true);
+  const scooterRoot = cloneSkeleton(assets.scooterScene);
+  scooterRoot.rotation.y = Math.PI;
+  scooterRoot.position.set(0, 0, 0);
+  scooterRoot.updateMatrixWorld(true);
 
-  const scooterBounds = new Box3().setFromObject(scooter);
+  const scooterBounds = new Box3().setFromObject(scooterRoot);
   const scooterSize = scooterBounds.getSize(new Vector3());
   const scale = scooterSize.z > 0 ? TARGET_SCOOTER_SIZE.z / scooterSize.z : 1;
-  scooter.scale.setScalar(scale);
-  scooter.updateMatrixWorld(true);
+  scooterRoot.scale.setScalar(scale);
+  scooterRoot.updateMatrixWorld(true);
 
-  const scaledBounds = new Box3().setFromObject(scooter);
+  const scaledBounds = new Box3().setFromObject(scooterRoot);
   const scaledCenter = scaledBounds.getCenter(new Vector3());
-  scooter.position.sub(scaledCenter);
-  scooter.position.y -= scaledBounds.min.y;
-  scooter.traverse((child) => {
+  scooterRoot.position.sub(scaledCenter);
+  scooterRoot.position.y -= scaledBounds.min.y;
+  scooterRoot.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
     }
   });
-  group.add(scooter);
+  group.add(scooterRoot);
+
+    // Collect wheel/steering parts from the imported scooter and compute radii (after scaling)
+    const wheelsMetaFromAsset = findWheelsAndSteering(scooterRoot);
+    wheelsMetaFromAsset.frontRadius = computeWheelRadius(wheelsMetaFromAsset.frontWheel) ?? wheelsMetaFromAsset.frontRadius ?? null;
+    wheelsMetaFromAsset.rearRadius = computeWheelRadius(wheelsMetaFromAsset.rearWheel) ?? wheelsMetaFromAsset.rearRadius ?? null;
+    group.userData.wheels = wheelsMetaFromAsset;
+
 
   const scooterClips = Array.isArray(assets.scooterAnimations) ? assets.scooterAnimations : [];
   if (scooterClips.length > 0) {
-    const scooterMixer = new AnimationMixer(scooter);
+    const scooterMixer = new AnimationMixer(scooterRoot);
     const clip = scooterClips[0];
     const action = scooterMixer.clipAction(clip);
     action.reset();
@@ -519,7 +521,8 @@ export function createScooter(world, material, assets = {}) {
       const radius = wheels.frontRadius || wheels.rearRadius || 0.2;
       if (radius > 0) {
         const distance = speed * delta;
-        const spinDelta = distance / radius;
+        const dir = (controlsState.drive || 0) < 0 ? -1 : 1;
+        const spinDelta = (distance / radius) * dir;
         wheelSpin = (wheelSpin + spinDelta) % (Math.PI * 2);
         if (wheels.frontWheel) wheels.frontWheel.rotation.x -= spinDelta;
         if (wheels.rearWheel) wheels.rearWheel.rotation.x -= spinDelta;

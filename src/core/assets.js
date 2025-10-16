@@ -91,25 +91,6 @@ export async function loadMallAssets() {
     safeLoad('base npc model', () => gltfLoader.loadAsync(resolveAssetPath('assets/Character Base.gltf'))),
   ]);
 
-  const menNpcGltfs = await loadNpcPack('animated men npc', 'assets/Animated Men Pack-glb', [
-    'Man.gltf',
-    'Man in Suit.gltf',
-    'Man in Long Sleeves.gltf',
-    'Man-fjHyMd5Wxw.gltf',
-  ]);
-
-  const womenNpcGltfs = await loadNpcPack('animated women npc', 'assets/Ultimate Modular Women Pack-glb', [
-    'Animated Woman.gltf',
-    'Animated Woman-nIItLV9nxS.gltf',
-    'Adventurer.gltf',
-    'Medieval.gltf',
-    'Punk.gltf',
-    'Sci Fi Character.gltf',
-    'Soldier.gltf',
-    'Suit.gltf',
-    'Witch.gltf',
-    'Worker.gltf',
-  ]);
 
   const kioskScene = kioskGltf ? kioskGltf.scene : null;
   const columnScene = columnGltf ? columnGltf.scene : null;
@@ -119,8 +100,8 @@ export async function loadMallAssets() {
   const riderScene = riderGltf ? riderGltf.scene : null;
   const characterBaseScene = characterBaseGltf ? characterBaseGltf.scene : null;
 
-  const animatedMenVariants = menNpcGltfs;
-  const animatedWomenVariants = womenNpcGltfs;
+  const animatedMenVariants = [];
+  const animatedWomenVariants = [];
 
   if (bannerTexture) {
     bannerTexture.wrapS = RepeatWrapping;
@@ -152,5 +133,34 @@ export async function loadMallAssets() {
     makeBannerInstance() {
       return bannerScene ? bannerScene.clone(true) : null;
     },
+  };
+}
+
+
+// Load heavy NPC packs lazily to improve startup.
+export async function loadNpcPacks() {
+  const menNpcGltfs = await loadNpcPack('animated men npc', 'assets/Animated Men Pack-glb', [
+    'Man.gltf',
+    'Man in Suit.gltf',
+    'Man in Long Sleeves.gltf',
+    'Man-fjHyMd5Wxw.gltf',
+  ]);
+
+  const womenNpcGltfs = await loadNpcPack('animated women npc', 'assets/Ultimate Modular Women Pack-glb', [
+    'Animated Woman.gltf',
+    'Animated Woman-nIItLV9nxS.gltf',
+    'Adventurer.gltf',
+    'Medieval.gltf',
+    'Punk.gltf',
+    'Sci Fi Character.gltf',
+    'Soldier.gltf',
+    'Suit.gltf',
+    'Witch.gltf',
+    'Worker.gltf',
+  ]);
+
+  return {
+    animatedMenVariants: menNpcGltfs,
+    animatedWomenVariants: womenNpcGltfs,
   };
 }

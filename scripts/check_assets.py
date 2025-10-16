@@ -11,9 +11,10 @@ generic "404" errors at runtime.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Tuple, Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,144 @@ def check_directory(root: Path, requirement: Requirement) -> tuple[bool, str]:
     return True, f"{requirement.label}: all {len(requirement.members)} files present"
 
 
+# --- GLTF structure validation helpers -------------------------------------------------
+
+CriticalRiderBones: tuple[str, ...] = (
+    "CC_Base_Hip_02",
+    "CC_Base_Spine01_034",
+    "CC_Base_Head_038",
+)
+
+OptionalRiderBones: tuple[str, ...] = (
+    "CC_Base_L_Thigh_04",
+    "CC_Base_L_Calf_05",
+    "CC_Base_L_Foot_06",
+    "CC_Base_R_Thigh_018",
+    "CC_Base_R_Calf_019",
+    "CC_Base_R_Foot_021",
+    "CC_Base_L_Upperarm_050",
+    "CC_Base_L_Forearm_051",
+    "CC_Base_L_Hand_055",
+    "CC_Base_R_Upperarm_078",
+    "CC_Base_R_Forearm_079",
+    "CC_Base_R_Hand_083",
+)
+
+
+def _load_gltf_json(path: Path) -> dict:
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as exc:  # pragma: no cover
+        return {"__error__": str(exc)}
+
+
+def _build_parent_map(nodes: list[dict]) -> dict[int, int | None]:
+    parent_of: dict[int, int | None] = {}
+    for idx, node in enumerate(nodes):
+        for child in node.get("children", []) or []:
+            parent_of[int(child)] = idx
+        if idx not in parent_of:
+            parent_of[idx] = None
+    return parent_of
+
+
+def _top_level_nodes(gltf: dict) -> set[int]:
+    tops: set[int] = set()
+    for scene in gltf.get("scenes", []) or []:
+        for n in scene.get("nodes", []) or []:
+            tops.add(int(n))
+    return tops
+
+
+ValidationResult = tuple[bool, str, bool]  # (ok, message, is_warning)
+
+
+def validate_rider_asset(path: Path) -> list[ValidationResult]:
+    results: list[ValidationResult] = []
+    gltf = _load_gltf_json(path)
+    nodes: list[dict] = gltf.get("nodes", []) or []
+    name_to_index: dict[str, int] = {
+        str(n.get("name")): i for i, n in enumerate(nodes) if "name" in n
+    }
+
+    missing_crit = [n for n in CriticalRiderBones if n not in name_to_index]
+    if missing_crit:
+        results.append(
+            (False, f"Rider: missing critical bones: {', '.join(missing_crit)}", False)
+        )
+    else:
+        results.append((True, "Rider: all critical bones present", False))
+
+    missing_opt = [n for n in OptionalRiderBones if n not in name_to_index]
+    if missing_opt:
+        # Optional: warn only
+        results.append(
+            (True, f"Rider: optional bones missing: {', '.join(missing_opt)}", True)
+        )
+
+    # Connectivity check: ensure each critical bone reaches a scene root via parents
+    parent_map = _build_parent_map(nodes)
+    tops = _top_level_nodes(gltf)
+    not_connected: list[str] = []
+    for bone in CriticalRiderBones:
+        idx = name_to_index.get(bone)
+        if idx is None:
+            continue
+        seen: set[int] = set()
+        cur = idx
+        connected = False
+        while cur is not None and cur not in seen:
+            seen.add(cur)
+            if cur in tops:
+                connected = True
+                break
+            cur = parent_map.get(cur)
+        if not connected:
+            not_connected.append(bone)
+    if not_connected:
+        results.append(
+            (
+                True,
+                "Rider: bones not connected to a scene root (warning): "
+                + ", ".join(not_connected),
+                True,
+            )
+        )
+    else:
+        results.append((True, "Rider: critical bones are connected to scene root", False))
+
+    return results
+
+
+def validate_scooter_asset(path: Path) -> list[ValidationResult]:
+    results: list[ValidationResult] = []
+    gltf = _load_gltf_json(path)
+    nodes: list[dict] = gltf.get("nodes", []) or []
+    names = [str(n.get("name", "")).lower() for n in nodes]
+
+    wheel_count = sum(1 for nm in names if "wheel" in nm)
+    has_handle = any("handle" in nm for nm in names) or any("handlebar" in nm for nm in names)
+    has_fork_or_steer = any("fork" in nm for nm in names) or any("steer" in nm for nm in names)
+
+    if wheel_count == 0:
+        # Naming helps our visual wheel animation — mark as warning if absent
+        results.append((True, "Scooter: no nodes named like 'wheel' (naming warning)", True))
+    else:
+        results.append((True, f"Scooter: found {wheel_count} wheel-like node(s)", False))
+
+    if not has_handle:
+        results.append((True, "Scooter: no 'handle/handlebar' node found (warning)", True))
+    if not has_fork_or_steer:
+        results.append((True, "Scooter: no 'fork/steer' node found (warning)", True))
+
+    # Basic scene presence
+    if not gltf.get("scenes"):
+        results.append((False, "Scooter: GLTF has no scenes array", False))
+
+    return results
+
+
 def run_checks(root: Path, requirements: Iterable[Requirement]) -> int:
     print("Verifying required public assets...\n")
     failures = 0
@@ -134,15 +273,34 @@ def run_checks(root: Path, requirements: Iterable[Requirement]) -> int:
         print(f"  {symbol} {message}")
         if not ok:
             failures += 1
+            continue
+
+        # Deep validation for specific GLTFs (naming + hierarchy)
+        if requirement.rel_path.endswith("evil_old_lady/scene.gltf"):
+            for ok2, msg, is_warn in validate_rider_asset(root / requirement.rel_path):
+                if is_warn:
+                    print(f"    ! {msg}")
+                else:
+                    print(f"    {'✓' if ok2 else '✗'} {msg}")
+                if (not ok2) and (not is_warn):
+                    failures += 1
+        elif requirement.rel_path.endswith("mobility_scooter_animated/scene.gltf"):
+            for ok2, msg, is_warn in validate_scooter_asset(root / requirement.rel_path):
+                if is_warn:
+                    print(f"    ! {msg}")
+                else:
+                    print(f"    {'✓' if ok2 else '✗'} {msg}")
+                if (not ok2) and (not is_warn):
+                    failures += 1
 
     if failures:
         print(
-            f"\n{failures} requirement(s) were missing or incomplete. "
-            "Download the assets listed above and place them under public/assets/."
+            f"\n{failures} problem(s) found. "
+            "Fix the issues above and re-run this script."
         )
         return 1
 
-    print("\nAll required assets are present.")
+    print("\nAll required assets are present and pass structural checks.")
     return 0
 
 
