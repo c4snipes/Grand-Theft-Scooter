@@ -128,6 +128,12 @@ async function startGame() {
   applyEnvironmentTheme = setColorMode;
   applyEnvironmentTheme(settings.getTheme());
 
+
+  // Dynamic resolution scaling to reduce latency on slower machines
+  const basePixelRatio = Math.min(window.devicePixelRatio, 1.5);
+  let dynamicPixelRatio = basePixelRatio;
+  let fpsEMA = 60; // exponential moving average of FPS
+
   const { world, materials } = createPhysicsWorld();
   controls = createKeyboardControls(activeLayout);
   scoreboard = createScoreboard();
@@ -170,9 +176,17 @@ async function startGame() {
   mall.populate({ mode: assets.mallScene ? 'static' : 'default' });
   updateHudHints(activeLayout);
 
-  const SCOOTER_SPAWN_HEIGHT = 0.35;
+  let SCOOTER_SPAWN_HEIGHT = 0.45;
   const spawnPoint = new Vec3(0, SCOOTER_SPAWN_HEIGHT, 0);
   const spawnQuaternion = { x: 0, y: 0, z: 0, w: 1 };
+  // Align spawn height to the actual physics half-height once the scooter is built
+  try {
+    const halfY = scooter?.body?.shapes?.[0]?.halfExtents?.y;
+    if (typeof halfY === 'number' && isFinite(halfY)) {
+      SCOOTER_SPAWN_HEIGHT = Math.max(0.2, halfY + 0.05);
+      spawnPoint.y = SCOOTER_SPAWN_HEIGHT;
+    }
+  } catch (_) { /* non-fatal */ }
   const forwardVector = new Vec3(0, 0, -1);
   const tmpForce = new Vec3();
   const clock = new Clock();
@@ -235,12 +249,13 @@ async function startGame() {
       selectorMall && typeof selectorMall.findNearestNavigablePoint === 'function',
       'createSpawnSelector requires selectorMall.findNearestNavigablePoint().',
     );
-    const geometry = new RingGeometry(0.6, 1.05, 40);
+    const geometry = new RingGeometry(0.8, 1.25, 48);
     const material = new MeshBasicMaterial({
       color: '#4f8ef7',
       opacity: 0.6,
       transparent: true,
       side: DoubleSide,
+      depthTest: false,
     });
     const indicator = new Mesh(geometry, material);
     indicator.rotation.x = -Math.PI / 2;
@@ -284,7 +299,7 @@ async function startGame() {
       const safe = computeSafe(point ?? fallback);
       candidate.copy(safe);
       indicator.visible = true;
-      indicator.position.set(safe.x, 0.02, safe.z);
+      indicator.position.set(safe.x, safe.y + 0.02, safe.z);
     }
 
     function handlePointerMove(event) {
@@ -372,6 +387,15 @@ async function startGame() {
     getScooterBody: () => scooter.body,
   });
 
+  // While the spawn selector is active, render frames so the user can see the map and indicator
+  let spawnPreviewActive = false;
+  function renderSpawnPreview() {
+    if (!spawnPreviewActive) return;
+    renderer.render(scene, camera);
+    requestAnimationFrame(renderSpawnPreview);
+  }
+
+
   function updateRunTelemetry() {
     if (!scoreboard) return;
     const now = performance.now();
@@ -400,9 +424,12 @@ async function startGame() {
           'Click the floor to deploy your scooter. Press Enter to confirm or Esc to use the suggested spot.',
           { duration: 0 },
         );
+        spawnPreviewActive = true;
+        renderSpawnPreview();
         try {
           target = await spawnSelector.pick(target);
         } finally {
+          spawnPreviewActive = false;
           scoreboard.clearMessage();
         }
       }
@@ -584,7 +611,11 @@ async function startGame() {
     assets.animatedWomenVariants = animatedWomenVariants;
     assets.npcPacksReady = true;
     if (scoreboard) {
-      scoreboard.setMessage('Character packs loaded. Press R to reset and see high-fidelity NPCs.', { duration: 5200 });
+      scoreboard.setMessage('Character packs loaded. Upgrading the mall crowd…', { duration: 4200 });
+    }
+    if (mall && typeof mall.addPatrons === 'function') {
+      // Add a fresh batch of higher-fidelity NPCs now that packs are ready
+      mall.addPatrons(14);
     }
   }).catch((err) => console.warn('[assets] Failed to load NPC packs:', err));
 
@@ -607,6 +638,18 @@ async function startGame() {
     }
     handleFreeCameraMovement(delta, inputState);
     updateRunTelemetry();
+
+    // Update dynamic resolution scaling ~once per frame with light hysteresis
+    const fps = delta > 0 ? 1 / delta : 60;
+    fpsEMA = fpsEMA * 0.9 + fps * 0.1;
+    let nextPR = dynamicPixelRatio;
+    if (fpsEMA < 40 && dynamicPixelRatio > 1.0) nextPR = Math.max(1.0, dynamicPixelRatio - 0.1);
+    else if (fpsEMA > 58 && dynamicPixelRatio < basePixelRatio) nextPR = Math.min(basePixelRatio, dynamicPixelRatio + 0.1);
+    if (Math.abs(nextPR - dynamicPixelRatio) > 0.05) {
+      dynamicPixelRatio = nextPR;
+      renderer.setPixelRatio(dynamicPixelRatio);
+    }
+
     syncGraphics(delta);
     requestAnimationFrame(loop);
   }

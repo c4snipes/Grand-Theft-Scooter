@@ -16,9 +16,9 @@ import { invariant, warnOnce } from '../core/assert';
 
 // --> Entity: player scooter with grandma rider and visual assets.
 const SCOOTER_DIMENSIONS = {
-  width: 0.36,
-  height: 0.58,
-  length: 0.64,
+  width: 0.5,
+  height: 0.9,
+  length: 1.05,
 };
 const TARGET_SCOOTER_SIZE = new Vector3(
   SCOOTER_DIMENSIONS.width,
@@ -26,6 +26,7 @@ const TARGET_SCOOTER_SIZE = new Vector3(
   SCOOTER_DIMENSIONS.length,
 );
 const TARGET_RIDER_HEIGHT = 0.82;
+// Deprecated: use seat anchor detection instead of a fixed offset
 const RIDER_SEAT_OFFSET = new Vector3(0, 0.26, -0.035);
 
 function buildFallbackScooterMesh() {
@@ -93,6 +94,7 @@ function buildFallbackScooterMesh() {
 
   const seat = new Mesh(new BoxGeometry(0.36, 0.09, 0.42), seatMaterial);
   seat.position.set(0, 0.58, -0.55);
+  seat.name = 'seat';
   scooterGroup.add(seat);
 
   const steeringColumn = new Mesh(new CylinderGeometry(0.08, 0.08, 1.5, 20), polishedMetal);
@@ -390,6 +392,34 @@ function computeWheelRadius(object3d) {
   return diameter > 0 ? diameter / 2 : null;
 }
 
+function findSeatAnchor(root) {
+  // Try named nodes first
+  let seatNode = null;
+  root.traverse((obj) => {
+    const name = (obj?.name || '').toLowerCase();
+    if (!name) return;
+    if (!seatNode && (name.includes('seat') || name.includes('saddle'))) {
+      seatNode = obj;
+    }
+  });
+  if (seatNode) {
+    const b = new Box3().setFromObject(seatNode);
+    const c = b.getCenter(new Vector3());
+    // Nudge slightly above the seat surface
+    c.y = b.max.y + 0.01;
+    return c;
+  }
+  // Fallback heuristic based on scooter bounds
+  const bounds = new Box3().setFromObject(root);
+  const size = bounds.getSize(new Vector3());
+  const center = bounds.getCenter(new Vector3());
+  return new Vector3(
+    center.x,
+    bounds.min.y + size.y * 0.62,
+    center.z - size.z * 0.18,
+  );
+}
+
 
 function buildScooterMeshFromAssets(assets = {}) {
   invariant(assets && typeof assets === 'object', 'buildScooterMeshFromAssets expects an assets object.');
@@ -419,9 +449,11 @@ function buildScooterMeshFromAssets(assets = {}) {
   scooterRoot.updateMatrixWorld(true);
 
   const scaledBounds = new Box3().setFromObject(scooterRoot);
+  const scaledSize = scaledBounds.getSize(new Vector3());
   const scaledCenter = scaledBounds.getCenter(new Vector3());
   scooterRoot.position.sub(scaledCenter);
-  scooterRoot.position.y -= scaledBounds.min.y;
+  // Keep model centered at the physics body's origin so visuals match physics.
+  // (We no longer raise the model; the physics body spawn height handles ground clearance.)
   scooterRoot.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
@@ -464,11 +496,32 @@ function buildScooterMeshFromAssets(assets = {}) {
     rider.scale.setScalar(riderScale);
     rider.updateMatrixWorld(true);
 
-    const scaledRiderBounds = new Box3().setFromObject(rider);
-    const riderCenter = scaledRiderBounds.getCenter(new Vector3());
-    rider.position.sub(riderCenter);
-    rider.position.y -= scaledRiderBounds.min.y;
-    rider.position.add(RIDER_SEAT_OFFSET);
+    // Temporarily add rider to group to compute world-aligned placement using hip bone
+    group.add(rider);
+    rider.updateMatrixWorld(true);
+
+    const { bones } = validateAndCollectBones(rider);
+    const hip = bones.hip;
+
+    // Compute desired seat anchor in group space and move rider so hip aligns with it
+    const seatAnchor = findSeatAnchor(scooterRoot);
+    const seatWorld = seatAnchor.clone();
+    group.localToWorld(seatWorld);
+
+    const hipWorld = new Vector3();
+    if (hip && typeof hip.getWorldPosition === 'function') {
+      hip.getWorldPosition(hipWorld);
+    } else {
+      // Fallback to using rider bottom as approximate hip position
+      const rb = new Box3().setFromObject(rider);
+      const rc = rb.getCenter(new Vector3());
+      hipWorld.copy(rc);
+      hipWorld.y = rb.min.y + (rb.getSize(new Vector3()).y * 0.55);
+    }
+
+    const delta = seatWorld.sub(hipWorld);
+    rider.position.add(delta);
+    rider.updateMatrixWorld(true);
 
     poseRiderForScooter(rider);
     rider.traverse((child) => {
@@ -477,7 +530,6 @@ function buildScooterMeshFromAssets(assets = {}) {
         child.receiveShadow = true;
       }
     });
-    group.add(rider);
 
   }
 

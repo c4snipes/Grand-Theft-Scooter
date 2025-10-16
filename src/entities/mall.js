@@ -1074,8 +1074,16 @@ const staticLayout = {
     return record;
   }
 
+  function addPatrons(count = 12) {
+    const n = Math.max(0, Math.floor(count));
+    for (let i = 0; i < n; i += 1) {
+      spawnMallPatron();
+    }
+  }
+
   return {
     populate,
+    addPatrons,
     sync(delta) {
       for (const record of interactables) {
         record.mesh.position.set(

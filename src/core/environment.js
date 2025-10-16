@@ -113,7 +113,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     scene.add(mall);
   }
 
-  const cameraOffset = new Vector3(-9, 4.5, 11);
+  const cameraOffset = new Vector3(-8, 6, 12);
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();
