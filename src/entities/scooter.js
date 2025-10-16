@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
+import { invariant, warnOnce } from '../core/assert';
 
 // --> Entity: player scooter with grandma rider and visual assets.
 const SCOOTER_DIMENSIONS = {
@@ -60,6 +61,10 @@ function buildFallbackScooterMesh() {
   frontWheel.position.z = 1.15;
   scooterGroup.add(frontWheel);
 
+  rearWheel.name = 'rearWheel';
+  frontWheel.name = 'frontWheel';
+
+
   const hubGeometry = new CylinderGeometry(0.12, 0.12, 0.24, 16);
   hubGeometry.rotateZ(Math.PI / 2);
 
@@ -71,9 +76,16 @@ function buildFallbackScooterMesh() {
   frontHub.position.z = frontWheel.position.z;
   scooterGroup.add(frontHub);
 
+  rearHub.name = 'rearHub';
+  frontHub.name = 'frontHub';
+
+
   const frontFork = new Mesh(new BoxGeometry(0.12, 0.9, 0.24), polishedMetal);
   frontFork.position.set(0, -0.05, 1.05);
   scooterGroup.add(frontFork);
+
+  frontFork.name = 'fork';
+
 
   const seatPost = new Mesh(new CylinderGeometry(0.07, 0.07, 0.9, 16), polishedMetal);
   seatPost.position.set(0, 0.1, -0.55);
@@ -95,6 +107,9 @@ function buildFallbackScooterMesh() {
   handlebar.position.set(0, 1.08, 0.22);
   scooterGroup.add(handlebar);
 
+  handlebar.name = 'handlebar';
+
+
   const gripGeometry = new CylinderGeometry(0.07, 0.07, 0.14, 12);
   gripGeometry.rotateZ(Math.PI / 2);
 
@@ -105,6 +120,10 @@ function buildFallbackScooterMesh() {
   const rightGrip = leftGrip.clone();
   rightGrip.position.x = -leftGrip.position.x;
   scooterGroup.add(rightGrip);
+
+  leftGrip.name = 'leftGrip';
+  rightGrip.name = 'rightGrip';
+
 
   const headlight = new Mesh(new SphereGeometry(0.12, 16, 16), glassMaterial);
   headlight.position.set(0, 0.35, 1.25);
@@ -197,77 +216,202 @@ function buildFallbackScooterMesh() {
   scooterGroup.position.sub(normalizedCenter);
   scooterGroup.position.y -= normalizedBounds.min.y;
 
+
+  // Attach wheel/steering metadata for animation
+  const wheelsMeta = scooterGroup.userData.wheels || {};
+  wheelsMeta.frontWheel = wheelsMeta.frontWheel || frontWheel;
+  wheelsMeta.rearWheel = wheelsMeta.rearWheel || rearWheel;
+  wheelsMeta.fork = wheelsMeta.fork || frontFork;
+  wheelsMeta.handlebar = wheelsMeta.handlebar || handlebar;
+  wheelsMeta.frontRadius = computeWheelRadius(wheelsMeta.frontWheel) ?? wheelsMeta.frontRadius ?? 0.18;
+  wheelsMeta.rearRadius = computeWheelRadius(wheelsMeta.rearWheel) ?? wheelsMeta.rearRadius ?? 0.18;
+  scooterGroup.userData.wheels = wheelsMeta;
+
   return scooterGroup;
 }
 
+function getBoneDescriptors() {
+  return [
+    { key: 'hip', name: 'CC_Base_Hip_02', critical: true },
+    { key: 'spine', name: 'CC_Base_Spine01_034', critical: true },
+    { key: 'head', name: 'CC_Base_Head_038', critical: true },
+    { key: 'leftThigh', name: 'CC_Base_L_Thigh_04' },
+    { key: 'leftCalf', name: 'CC_Base_L_Calf_05' },
+    { key: 'leftFoot', name: 'CC_Base_L_Foot_06' },
+    { key: 'rightThigh', name: 'CC_Base_R_Thigh_018' },
+    { key: 'rightCalf', name: 'CC_Base_R_Calf_019' },
+    { key: 'rightFoot', name: 'CC_Base_R_Foot_021' },
+    { key: 'leftUpperArm', name: 'CC_Base_L_Upperarm_050' },
+    { key: 'leftForearm', name: 'CC_Base_L_Forearm_051' },
+    { key: 'leftHand', name: 'CC_Base_L_Hand_055' },
+    { key: 'rightUpperArm', name: 'CC_Base_R_Upperarm_078' },
+    { key: 'rightForearm', name: 'CC_Base_R_Forearm_079' },
+    { key: 'rightHand', name: 'CC_Base_R_Hand_083' },
+  ];
+}
+
+function validateAndCollectBones(rider) {
+  const boneDescriptors = getBoneDescriptors();
+  const bones = {};
+  const descriptorNameByKey = {};
+  const missingCritical = [];
+
+  boneDescriptors.forEach((descriptor) => {
+    descriptorNameByKey[descriptor.key] = descriptor.name;
+    const node = rider.getObjectByName(descriptor.name);
+    bones[descriptor.key] = node;
+    if (!node && descriptor.critical) {
+      missingCritical.push(descriptor.name);
+    }
+  });
+
+  return { bones, descriptorNameByKey, missingCritical };
+}
+
+function applyBasePose(bones) {
+  const { hip, spine, head } = bones;
+  hip.rotation.x = 0.45;
+  hip.position.y -= 0.05;
+  spine.rotation.x = -0.35;
+  head.rotation.x = 0.12;
+}
+
+function applyLimbPoses(bones, descriptorNameByKey) {
+  const missingNames = (keys) => keys
+    .filter((key) => !bones[key])
+    .map((key) => descriptorNameByKey[key]);
+
+  function setPoseOrWarn(keys, poseFn, warnKey, warnMsg) {
+    const missing = missingNames(keys);
+    if (missing.length === 0) {
+      poseFn();
+    } else {
+      warnOnce(warnKey, warnMsg, { bones: missing });
+    }
+  }
+
+  const {
+    leftThigh, leftCalf, leftFoot,
+    rightThigh, rightCalf, rightFoot,
+    leftUpperArm, leftForearm, leftHand,
+    rightUpperArm, rightForearm, rightHand,
+  } = bones;
+
+  setPoseOrWarn(
+    ['leftThigh', 'leftCalf', 'leftFoot'],
+    () => {
+      leftThigh.rotation.x = 1.65;
+      leftCalf.rotation.x = -1.85;
+      leftFoot.rotation.x = 0.55;
+    },
+    'poseRiderForScooter:leftLeg',
+    '[poseRiderForScooter] Missing bones for left leg pose.');
+
+  setPoseOrWarn(
+    ['rightThigh', 'rightCalf', 'rightFoot'],
+    () => {
+      rightThigh.rotation.x = 1.65;
+      rightCalf.rotation.x = -1.85;
+      rightFoot.rotation.x = 0.55;
+    },
+    'poseRiderForScooter:rightLeg',
+    '[poseRiderForScooter] Missing bones for right leg pose.');
+
+  setPoseOrWarn(
+    ['leftUpperArm', 'leftForearm', 'leftHand'],
+    () => {
+      leftUpperArm.rotation.set(-1.35, 0.25, 0.55);
+      leftForearm.rotation.x = -0.85;
+      leftHand.rotation.x = -0.25;
+    },
+    'poseRiderForScooter:leftArm',
+    '[poseRiderForScooter] Missing bones for left arm pose.');
+
+  setPoseOrWarn(
+    ['rightUpperArm', 'rightForearm', 'rightHand'],
+    () => {
+      rightUpperArm.rotation.set(-1.35, -0.25, -0.55);
+      rightForearm.rotation.x = -0.85;
+      rightHand.rotation.x = -0.25;
+    },
+    'poseRiderForScooter:rightArm',
+    '[poseRiderForScooter] Missing bones for right arm pose.');
+}
+
 function poseRiderForScooter(rider) {
-  const hip = rider.getObjectByName('CC_Base_Hip_02');
-  const spine = rider.getObjectByName('CC_Base_Spine01_034');
-  const head = rider.getObjectByName('CC_Base_Head_038');
+  invariant(rider && typeof rider.getObjectByName === 'function', 'poseRiderForScooter requires a rider with getObjectByName().');
 
-  const leftThigh = rider.getObjectByName('CC_Base_L_Thigh_04');
-  const leftCalf = rider.getObjectByName('CC_Base_L_Calf_05');
-  const leftFoot = rider.getObjectByName('CC_Base_L_Foot_06');
+  const { bones, descriptorNameByKey, missingCritical } = validateAndCollectBones(rider);
 
-  const rightThigh = rider.getObjectByName('CC_Base_R_Thigh_018');
-  const rightCalf = rider.getObjectByName('CC_Base_R_Calf_019');
-  const rightFoot = rider.getObjectByName('CC_Base_R_Foot_021');
-
-  const leftUpperArm = rider.getObjectByName('CC_Base_L_Upperarm_050');
-  const leftForearm = rider.getObjectByName('CC_Base_L_Forearm_051');
-  const leftHand = rider.getObjectByName('CC_Base_L_Hand_055');
-
-  const rightUpperArm = rider.getObjectByName('CC_Base_R_Upperarm_078');
-  const rightForearm = rider.getObjectByName('CC_Base_R_Forearm_079');
-  const rightHand = rider.getObjectByName('CC_Base_R_Hand_083');
-
-  if (hip) {
-    hip.rotation.x = 0.45;
-    hip.position.y -= 0.05;
-  }
-
-  if (spine) {
-    spine.rotation.x = -0.35;
-  }
-
-  if (head) {
-    head.rotation.x = 0.12;
-  }
-
-  if (leftThigh && leftCalf && leftFoot) {
-    leftThigh.rotation.x = 1.65;
-    leftCalf.rotation.x = -1.85;
-    leftFoot.rotation.x = 0.55;
-  }
-
-  if (rightThigh && rightCalf && rightFoot) {
-    rightThigh.rotation.x = 1.65;
-    rightCalf.rotation.x = -1.85;
-    rightFoot.rotation.x = 0.55;
-  }
-
-  if (leftUpperArm && leftForearm && leftHand) {
-    leftUpperArm.rotation.set(-1.35, 0.25, 0.55);
-    leftForearm.rotation.x = -0.85;
-    leftHand.rotation.x = -0.25;
-  }
-
-  if (rightUpperArm && rightForearm && rightHand) {
-    rightUpperArm.rotation.set(-1.35, -0.25, -0.55);
-    rightForearm.rotation.x = -0.85;
-    rightHand.rotation.x = -0.25;
+  if (missingCritical.length > 0) {
+    warnOnce(
+      'poseRiderForScooter:criticalBones',
+      '[poseRiderForScooter] Missing critical rider bones; skipping pose adjustments.',
+      { bones: missingCritical },
+    );
+  } else {
+    applyBasePose(bones);
+    applyLimbPoses(bones, descriptorNameByKey);
   }
 }
 
+// Helpers to detect wheels/steering parts and compute approximate radii
+function findWheelsAndSteering(root) {
+  const result = { frontWheel: null, rearWheel: null, fork: null, handlebar: null };
+  const wheelCandidates = [];
+  root.traverse((obj) => {
+    const name = (obj?.name || '').toLowerCase();
+    if (!name) return;
+    if (name.includes('wheel')) {
+      wheelCandidates.push(obj);
+    }
+    if (!result.fork && (name.includes('fork') || name.includes('steer'))) {
+      result.fork = obj;
+    }
+    if (!result.handlebar && name.includes('handle')) {
+      result.handlebar = obj;
+    }
+  });
+  if (wheelCandidates.length >= 2) {
+    wheelCandidates.sort((a, b) => (a.position?.z ?? 0) - (b.position?.z ?? 0));
+    result.rearWheel = wheelCandidates[0];
+    result.frontWheel = wheelCandidates[wheelCandidates.length - 1];
+  } else if (wheelCandidates.length === 1) {
+    result.frontWheel = wheelCandidates[0];
+  }
+  return result;
+}
+
+function computeWheelRadius(object3d) {
+  if (!object3d) return null;
+  const bounds = new Box3().setFromObject(object3d);
+  const size = bounds.getSize(new Vector3());
+  const diameter = Math.max(size.x, size.y);
+  return diameter > 0 ? diameter / 2 : null;
+}
+
+
 function buildScooterMeshFromAssets(assets = {}) {
+  invariant(assets && typeof assets === 'object', 'buildScooterMeshFromAssets expects an assets object.');
   if (!assets.scooterScene) {
     return { group: buildFallbackScooterMesh(), mixers: [] };
   }
 
   const group = new Group();
+
+  // Collect wheel/steering parts from the imported scooter and compute radii
+  const wheelsMetaFromAsset = findWheelsAndSteering(scooter);
+  wheelsMetaFromAsset.frontRadius = computeWheelRadius(wheelsMetaFromAsset.frontWheel) ?? wheelsMetaFromAsset.frontRadius ?? null;
+  wheelsMetaFromAsset.rearRadius = computeWheelRadius(wheelsMetaFromAsset.rearWheel) ?? wheelsMetaFromAsset.rearRadius ?? null;
+  group.userData.wheels = wheelsMetaFromAsset;
+
   group.name = 'scooter';
   const mixers = [];
 
+  invariant(
+    assets.scooterScene && typeof assets.scooterScene.traverse === 'function',
+    'Expected assets.scooterScene to be a THREE.Object3D.',
+  );
   const scooter = cloneSkeleton(assets.scooterScene);
   scooter.rotation.y = Math.PI;
   scooter.position.set(0, 0, 0);
@@ -303,6 +447,10 @@ function buildScooterMeshFromAssets(assets = {}) {
   }
 
   if (assets.riderScene) {
+    invariant(
+      typeof assets.riderScene.traverse === 'function',
+      'Expected assets.riderScene to be a THREE.Object3D.',
+    );
     const rider = cloneSkeleton(assets.riderScene);
     rider.rotation.y = Math.PI;
     rider.position.set(0, 0, 0);
@@ -335,6 +483,13 @@ function buildScooterMeshFromAssets(assets = {}) {
 }
 
 export function createScooter(world, material, assets = {}) {
+  invariant(world && typeof world.addBody === 'function', 'createScooter requires a physics world with addBody().');
+  invariant(
+    material === undefined || material === null || typeof material === 'object',
+    'createScooter expects material to be an object when provided.',
+  );
+  invariant(assets && typeof assets === 'object', 'createScooter expects an assets object.');
+
   const body = new Body({
     mass: 25,
     shape: new CannonBox(new Vec3(
@@ -354,9 +509,37 @@ export function createScooter(world, material, assets = {}) {
   const { group, mixers } = buildScooterMeshFromAssets(assets);
   const mesh = group;
 
+  let controlsState = { drive: 0, steer: 0 };
+  let wheelSpin = 0;
+  function updateVisualWheels(delta) {
+    const wheels = mesh.userData && mesh.userData.wheels ? mesh.userData.wheels : null;
+    if (!wheels) return;
+    const speed = body.velocity.length();
+    if (delta > 0) {
+      const radius = wheels.frontRadius || wheels.rearRadius || 0.2;
+      if (radius > 0) {
+        const distance = speed * delta;
+        const spinDelta = distance / radius;
+        wheelSpin = (wheelSpin + spinDelta) % (Math.PI * 2);
+        if (wheels.frontWheel) wheels.frontWheel.rotation.x -= spinDelta;
+        if (wheels.rearWheel) wheels.rearWheel.rotation.x -= spinDelta;
+      }
+    }
+    const steerAngle = (controlsState.steer || 0) * 0.35;
+    if (wheels.fork) wheels.fork.rotation.y = steerAngle;
+    if (wheels.handlebar) wheels.handlebar.rotation.y = steerAngle;
+    if (wheels.frontWheel) wheels.frontWheel.rotation.y = steerAngle;
+  }
+
+
   return {
     mesh,
     body,
+    setControlsState(next) {
+      if (next && typeof next === 'object') {
+        controlsState = { ...controlsState, ...next };
+      }
+    },
     sync(delta = 0) {
       mesh.position.copy(body.position);
       mesh.quaternion.copy(body.quaternion);
@@ -365,6 +548,7 @@ export function createScooter(world, material, assets = {}) {
           mixer.update(delta);
         }
       }
+      updateVisualWheels(delta);
     },
   };
 }

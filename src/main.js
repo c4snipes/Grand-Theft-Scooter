@@ -21,6 +21,7 @@ import { createGameOverOverlay } from './hud/gameOver';
 import { createKeyboardControls } from './input/keyboard';
 import { createSettingsManager } from './input/controlPrompt';
 import { loadMallAssets } from './core/assets';
+import { assertDefined, invariant } from './core/assert';
 
 function updateHudHints(layout) {
   const accelerateEl = document.querySelector('[data-hint-accelerate]');
@@ -50,9 +51,7 @@ function updateHudHints(layout) {
 
 async function startGame() {
   const canvas = document.getElementById('app');
-  if (!canvas) {
-    throw new Error('Expected to find a canvas with id="app"');
-  }
+  assertDefined(canvas, 'Expected to find a canvas with id="app".');
 
   let controls = null;
   let scoreboard = null;
@@ -62,9 +61,13 @@ async function startGame() {
   let isGameOver = false;
   let spawnSelector = null;
 
+  function isSpawnSelectorActive() {
+    return Boolean(spawnSelector && typeof spawnSelector.isActive === 'function' && spawnSelector.isActive());
+  }
+
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
-    if (spawnSelector && spawnSelector.isActive()) return;
+    if (isSpawnSelectorActive()) return;
     const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
     if (cameraMode === 'orbit') {
       scoreboard.setMessage(
@@ -107,12 +110,28 @@ async function startGame() {
     controls: orbitControls,
     setColorMode,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
+  invariant(renderer && typeof renderer.render === 'function', 'createEnvironment must supply a renderer with render().');
+  invariant(scene && typeof scene.add === 'function', 'createEnvironment must supply a valid scene.');
+  invariant(camera && typeof camera.isCamera === 'boolean', 'createEnvironment must supply a THREE camera.');
+  invariant(typeof setCameraMode === 'function', 'createEnvironment must supply setCameraMode().');
+  invariant(typeof updateCamera === 'function', 'createEnvironment must supply updateCamera().');
+  invariant(typeof handleResize === 'function', 'createEnvironment must supply handleResize().');
+  invariant(orbitControls && typeof orbitControls.update === 'function', 'createEnvironment must supply orbit controls with update().');
+  invariant(typeof setColorMode === 'function', 'createEnvironment must supply setColorMode().');
   applyEnvironmentTheme = setColorMode;
   applyEnvironmentTheme(settings.getTheme());
 
   const { world, materials } = createPhysicsWorld();
   controls = createKeyboardControls(activeLayout);
   scoreboard = createScoreboard();
+  invariant(
+    scoreboard
+    && typeof scoreboard.updateTelemetry === 'function'
+    && typeof scoreboard.setMessage === 'function'
+    && typeof scoreboard.toggleDashboard === 'function',
+    'createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard().',
+  );
+  invariant(controls && typeof controls.setLayout === 'function', 'createKeyboardControls must provide setLayout().');
   scoreboard.updateTelemetry({
     speed: 0,
     topSpeed: 0,
@@ -126,6 +145,7 @@ async function startGame() {
   const gameOverOverlay = createGameOverOverlay(() => {
     window.location.reload();
   });
+  invariant(gameOverOverlay && typeof gameOverOverlay.show === 'function', 'createGameOverOverlay must provide show().');
 
   const scooter = createScooter(world, materials.player, assets);
   scene.add(scooter.mesh);
@@ -133,6 +153,13 @@ async function startGame() {
   setCameraMode(cameraMode);
 
   const mall = createMall(world, scene, assets, materials);
+  invariant(
+    mall
+    && typeof mall.populate === 'function'
+    && typeof mall.handleCollision === 'function'
+    && typeof mall.findNearestNavigablePoint === 'function',
+    'createMall must return an object supporting populate(), handleCollision(), and findNearestNavigablePoint().',
+  );
   mall.populate({ mode: assets.mallScene ? 'static' : 'default' });
   updateHudHints(activeLayout);
 
@@ -146,6 +173,29 @@ async function startGame() {
   const cameraRight = new Vector3();
   const cameraMove = new Vector3();
   const worldUp = new Vector3(0, 1, 0);
+  const CAMERA_AXIS_NORMALIZE_THRESHOLD = 1e-6;
+
+  function applyDriveForce(drive) {
+    if (drive === 0) return;
+    forwardVector.set(0, 0, -1);
+    scooter.body.quaternion.vmult(forwardVector, forwardVector);
+    tmpForce.copy(forwardVector).scale(75 * drive);
+    scooter.body.applyForce(tmpForce, scooter.body.position);
+  }
+
+  function applySteering(steer, delta) {
+    if (steer === 0) return;
+    scooter.body.angularVelocity.y -= steer * delta * 5;
+  }
+
+  function alignHorizontalAxis(target, fallbackX, fallbackZ) {
+    target.y = 0;
+    if (target.lengthSq() < CAMERA_AXIS_NORMALIZE_THRESHOLD) {
+      target.set(fallbackX, 0, fallbackZ);
+    } else {
+      target.normalize();
+    }
+  }
 
   const runStats = {
     hits: 0,
@@ -165,6 +215,19 @@ async function startGame() {
     selectorMall,
     getScooterBody,
   }) {
+    invariant(
+      selectorCamera && typeof selectorCamera.isCamera === 'boolean',
+      'createSpawnSelector requires a THREE camera instance.',
+    );
+    invariant(
+      selectorRenderer && selectorRenderer.domElement,
+      'createSpawnSelector requires a renderer with a domElement.',
+    );
+    invariant(selectorScene && typeof selectorScene.add === 'function', 'createSpawnSelector requires a THREE scene.');
+    invariant(
+      selectorMall && typeof selectorMall.findNearestNavigablePoint === 'function',
+      'createSpawnSelector requires selectorMall.findNearestNavigablePoint().',
+    );
     const geometry = new RingGeometry(0.6, 1.05, 40);
     const material = new MeshBasicMaterial({
       color: '#4f8ef7',
@@ -177,6 +240,8 @@ async function startGame() {
     indicator.position.y = 0.02;
     indicator.visible = false;
     selectorScene.add(indicator);
+
+    const selectorDomElement = selectorRenderer.domElement;
 
     const pointer = new Vector2();
     const raycaster = new Raycaster();
@@ -197,7 +262,7 @@ async function startGame() {
     }
 
     function worldPointFromEvent(event) {
-      const rect = selectorRenderer.domElement.getBoundingClientRect();
+      const rect = selectorDomElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       pointer.set(x, y);
@@ -228,8 +293,10 @@ async function startGame() {
       if (!resolver) return;
       const safe = computeSafe(output ?? candidate);
       const result = safe.clone();
+      // Defensive: store resolver in a local variable before cleanup() nullifies it
+      const resolve = resolver;
       cleanup();
-      resolver(result);
+      resolve(result);
     }
 
     function handleClick(event) {
@@ -257,8 +324,8 @@ async function startGame() {
     function cleanup() {
       active = false;
       indicator.visible = false;
-      selectorRenderer.domElement.removeEventListener('pointermove', handlePointerMove);
-      selectorRenderer.domElement.removeEventListener('click', handleClick);
+      selectorDomElement.removeEventListener('pointermove', handlePointerMove);
+      selectorDomElement.removeEventListener('click', handleClick);
       window.removeEventListener('keydown', handleKey);
       resolver = null;
     }
@@ -270,8 +337,8 @@ async function startGame() {
       active = true;
       fallback.copy(computeSafe(start ?? new Vector3(0, 0, 0)));
       preview(fallback);
-      selectorRenderer.domElement.addEventListener('pointermove', handlePointerMove);
-      selectorRenderer.domElement.addEventListener('click', handleClick);
+      selectorDomElement.addEventListener('pointermove', handlePointerMove);
+      selectorDomElement.addEventListener('click', handleClick);
       window.addEventListener('keydown', handleKey);
       return new Promise((resolve) => {
         resolver = resolve;
@@ -379,27 +446,42 @@ async function startGame() {
     });
   }
 
-  window.addEventListener('keydown', (event) => {
-    const key = event.key.toLowerCase();
-    if (key === 'c' && !isGameOver && !(spawnSelector && spawnSelector.isActive())) {
-      cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
-      setCameraMode(cameraMode);
-      refreshCameraMessage();
-    }
-    if (key === 'r' && !(spawnSelector && spawnSelector.isActive())) {
-      event.preventDefault();
-      queueReset({ interactive: !event.shiftKey });
-    }
-    if (key === 'i') {
-      event.preventDefault();
-      if (spawnSelector && spawnSelector.isActive()) return;
-      const visible = scoreboard.toggleDashboard();
-      scoreboard.setMessage(
-        visible ? 'Telemetry open. Press I to hide.' : 'Telemetry hidden. Press I to view stats.',
-        { duration: 2600 },
-      );
-    }
-  });
+  function handleCameraModeToggle() {
+    if (isGameOver || isSpawnSelectorActive()) return;
+    cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
+    setCameraMode(cameraMode);
+    refreshCameraMessage();
+  }
+
+  function handleResetKey(event) {
+    if (isSpawnSelectorActive()) return;
+    event.preventDefault();
+    queueReset({ interactive: !event.shiftKey });
+  }
+
+  function handleTelemetryKey(event) {
+    event.preventDefault();
+    if (isSpawnSelectorActive()) return;
+    const visible = scoreboard.toggleDashboard();
+    scoreboard.setMessage(
+      visible ? 'Telemetry open. Press I to hide.' : 'Telemetry hidden. Press I to view stats.',
+      { duration: 2600 },
+    );
+  }
+
+  const keyHandlers = {
+    c: handleCameraModeToggle,
+    r: handleResetKey,
+    i: handleTelemetryKey,
+  };
+
+  function handleKeydown(event) {
+    const handler = keyHandlers[event.key.toLowerCase()];
+    if (!handler) return;
+    handler(event);
+  }
+
+  window.addEventListener('keydown', handleKeydown);
 
   function triggerGameOver(reason) {
     if (isGameOver) return;
@@ -442,16 +524,12 @@ async function startGame() {
       const drive = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
       const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
 
-      if (drive !== 0) {
-        forwardVector.set(0, 0, -1);
-        scooter.body.quaternion.vmult(forwardVector, forwardVector);
-        tmpForce.copy(forwardVector).scale(75 * drive);
-        scooter.body.applyForce(tmpForce, scooter.body.position);
+      if (scooter && typeof scooter.setControlsState === 'function') {
+        scooter.setControlsState({ drive, steer });
       }
 
-      if (steer !== 0) {
-        scooter.body.angularVelocity.y -= steer * delta * 5;
-      }
+      applyDriveForce(drive);
+      applySteering(steer, delta);
     }
 
     stepPhysics(world, delta);
@@ -462,35 +540,23 @@ async function startGame() {
   }
 
   function handleFreeCameraMovement(delta, input) {
-    if (cameraMode !== 'orbit') return;
-    if (spawnSelector && spawnSelector.isActive()) return;
+    if (cameraMode !== 'orbit' || isSpawnSelectorActive()) return;
 
     const moveZ = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
     const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     if (moveZ === 0 && moveX === 0) return;
 
     camera.getWorldDirection(cameraForward);
-    cameraForward.y = 0;
-    if (cameraForward.lengthSq() < 1e-6) {
-      cameraForward.set(0, 0, -1);
-    } else {
-      cameraForward.normalize();
-    }
+    alignHorizontalAxis(cameraForward, 0, -1);
 
     cameraRight.copy(cameraForward).cross(worldUp);
-    cameraRight.y = 0;
-    if (cameraRight.lengthSq() < 1e-6) {
-      cameraRight.set(1, 0, 0);
-    } else {
-      cameraRight.normalize();
-    }
+    alignHorizontalAxis(cameraRight, 1, 0);
 
     cameraMove.set(0, 0, 0);
     cameraMove.addScaledVector(cameraForward, moveZ);
     cameraMove.addScaledVector(cameraRight, moveX);
 
     if (cameraMove.lengthSq() === 0) return;
-
     cameraMove.normalize().multiplyScalar(delta * 22);
     camera.position.add(cameraMove);
     orbitControls.target.add(cameraMove);

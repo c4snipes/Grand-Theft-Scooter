@@ -29,10 +29,12 @@ const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight,
 camera.position.set(6, 4, 8);
 scene.add(camera);
 
-const ambient = new AmbientLight(0xffffff, 0.4);
+const WHITE_COLOR = 0xFFFFFF;
+
+const ambient = new AmbientLight(WHITE_COLOR, 0.4);
 scene.add(ambient);
 
-const sun = new DirectionalLight(0xffffff, 0.8);
+const sun = new DirectionalLight(WHITE_COLOR, 0.8);
 sun.position.set(5, 10, 4);
 scene.add(sun);
 

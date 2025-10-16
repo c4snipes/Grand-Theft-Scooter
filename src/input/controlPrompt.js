@@ -14,6 +14,29 @@ function getDefaultSettings() {
   };
 }
 
+function createUnavailableSettingsManager(reason, { initialWarned = false } = {}) {
+  const fallback = getDefaultSettings();
+  let warned = initialWarned;
+  function warnOnce() {
+    if (warned) return;
+    warned = true;
+    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+      console.warn(`[settings] ${reason}`);
+    }
+  }
+  return {
+    getControlScheme: () => fallback.controlScheme,
+    getTheme: () => fallback.theme,
+    open: () => {
+      warnOnce();
+    },
+    close: () => {
+      warnOnce();
+    },
+    isOpen: () => false,
+  };
+}
+
 function readStoredSettings() {
   if (typeof window === 'undefined' || !window.localStorage) {
     return null;
@@ -52,27 +75,13 @@ function applyDocumentTheme(theme) {
 
 export function createSettingsManager({ onControlSchemeChange, onThemeChange } = {}) {
   if (typeof window === 'undefined') {
-    const fallback = getDefaultSettings();
-    return {
-      getControlScheme: () => fallback.controlScheme,
-      getTheme: () => fallback.theme,
-      open: () => {},
-      close: () => {},
-      isOpen: () => false,
-    };
+    return createUnavailableSettingsManager('Settings unavailable outside a browser context.');
   }
 
   const root = document.querySelector('[data-settings]');
   if (!root) {
-    const fallback = getDefaultSettings();
     console.warn('[settings] Settings panel markup missing. Using defaults.');
-    return {
-      getControlScheme: () => fallback.controlScheme,
-      getTheme: () => fallback.theme,
-      open: () => {},
-      close: () => {},
-      isOpen: () => false,
-    };
+    return createUnavailableSettingsManager('Settings panel markup missing. Using defaults.', { initialWarned: true });
   }
 
   const controlInputs = Array.from(root.querySelectorAll('[data-control-option]'));

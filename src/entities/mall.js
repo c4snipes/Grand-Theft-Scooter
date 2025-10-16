@@ -14,6 +14,7 @@ import {
   Vector3,
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { warnOnce } from '../core/assert';
 
 // --> Environment Entities: this file is me trying to make the mall feel alive with random props.
 const mallBounds = {
@@ -1013,9 +1014,31 @@ const staticLayout = {
   }
 
   function handleHit(record, hitterBody) {
+    if (!record || typeof record !== 'object') {
+      warnOnce('mall:handleHit:invalidRecord', '[mall.handleHit] Record missing or not an object.');
+      return null;
+    }
     // Mark it as hit so we don't double count.
     if (record.hit) return null;
     record.hit = true;
+
+    if (!record.body || typeof record.body.applyImpulse !== 'function') {
+      warnOnce(
+        'mall:handleHit:missingBody',
+        '[mall.handleHit] Record is missing a physics body or applyImpulse().',
+        { label: record.label ?? record.type ?? 'unknown' },
+      );
+      return null;
+    }
+
+    if (!record.type) {
+      warnOnce(
+        'mall:handleHit:missingType',
+        '[mall.handleHit] Record is missing a type; skipping hit response.',
+        { label: record.label ?? 'unknown' },
+      );
+      return null;
+    }
 
     let cleanupDelay = 0;
 
@@ -1078,9 +1101,16 @@ const staticLayout = {
       }
     },
     handleCollision(body, hitterBody) {
-      if (!body) return null;
-      const record = body.userData;
+      const record = body?.userData;
       if (!record) return null;
+      if (typeof record !== 'object') {
+        warnOnce(
+          'mall:handleCollision:invalidRecord',
+          '[mall.handleCollision] Expected body.userData to be an object.',
+          { bodyId: body?.id },
+        );
+        return null;
+      }
       if (record.fatal) {
         return {
           kind: 'fatal',
@@ -1088,12 +1118,13 @@ const staticLayout = {
         };
       }
       const hit = handleHit(record, hitterBody);
-      if (!hit) return null;
-      return {
-        kind: 'score',
-        label: hit.label ?? 'Hit',
-        points: hit.points ?? 0,
-      };
+      return hit
+        ? {
+            kind: 'score',
+            label: hit.label ?? 'Hit',
+            points: hit.points ?? 0,
+          }
+        : null;
     },
     findNearestNavigablePoint,
     isPositionNavigable(position, minDistance = 4, options = {}) {
