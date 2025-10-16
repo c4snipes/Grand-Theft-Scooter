@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "echo \"skip\"",
     "typecheck": "echo \"skip\"",
-    "test": "echo \"skip\""
+    "test": "echo \"skip\"",
+    "assets": "python3 scripts/check_assets.py || python scripts/check_assets.py || py -3 scripts/check_assets.py"
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
