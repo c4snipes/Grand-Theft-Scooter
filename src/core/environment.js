@@ -24,7 +24,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   scene.background = new Color('#dfe6ef');
 
   // Camera that sits kind of behind the scooter.
-  const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
   camera.position.set(50, 28, 50);
   scene.add(camera);
 
@@ -64,22 +64,12 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   });
 
   let ground = null;
-  if (!assets.mallScene) {
-    const groundSize = 240;
-    ground = new Mesh(
-      new PlaneGeometry(groundSize, groundSize),
-      groundMaterial,
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    ground.position.y = -0.02;
-    scene.add(ground);
-  }
+
 
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
     mall.name = 'shopping-mall';
-    const mallScale = 10;
+    const mallScale = 24;
     mall.scale.setScalar(mallScale);
     const characterNamePattern = /character|people|person|crowd|npc|male|female|man|woman|boy|girl/;
     mall.traverse((child) => {
@@ -113,7 +103,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     scene.add(mall);
   }
 
-  const cameraOffset = new Vector3(-8, 6, 12);
+  const cameraOffset = new Vector3(-6, 5, 9);
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();
@@ -196,6 +186,9 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     if (controls.enabled) {
       controls.update();
     }
+    // When switching modes, gently adjust far plane if user is spanning more chunks
+    camera.far = cameraMode === 'orbit' ? 3000 : 2000;
+    camera.updateProjectionMatrix();
   }
 
   function updateCamera(target) {
@@ -218,6 +211,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     controls,
     setColorMode,
     dispose: () => {
+      try { controls?.dispose?.(); } catch (_) {}
       if (removeColorSchemeListener) {
         removeColorSchemeListener();
       }

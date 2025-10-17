@@ -22,26 +22,37 @@ async function safeLoad(label, loaderFn) {
   }
 }
 
-function resolveAssetPath(inputPath) {
-  if (!inputPath) return '';
-  if (/^[a-z][a-z0-9+\-.]*:/i.test(inputPath)) {
-    return inputPath;
-  }
+function isAbsoluteUrl(p) {
+  return /^[a-z][a-z0-9+\-.]*:/i.test(p);
+}
 
+function getBaseUrl() {
   const rawBase = (typeof import.meta !== 'undefined' && import.meta.env && typeof import.meta.env.BASE_URL === 'string')
     ? import.meta.env.BASE_URL
     : '/';
+  return rawBase;
+}
 
-  const normalizedBase = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
-  const trimmedPath = inputPath.startsWith('/') ? inputPath.slice(1) : inputPath;
-  const encodedSegments = trimmedPath
+function normalizeBasePath(base) {
+  const b = base.endsWith('/') ? base : `${base}/`;
+  return b.startsWith('/') ? b : `/${b}`;
+}
+
+function encodePath(path) {
+  const trimmed = path.startsWith('/') ? path.slice(1) : path;
+  return trimmed
     .split('/')
     .filter((segment) => segment.length > 0)
-    .map((segment) => encodeURIComponent(segment));
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
 
-  const prefix = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`;
-  const base = prefix.endsWith('/') ? prefix : `${prefix}/`;
-  return `${base}${encodedSegments.join('/')}`;
+function resolveAssetPath(inputPath) {
+  if (!inputPath) return '';
+  if (isAbsoluteUrl(inputPath)) return inputPath;
+  const base = normalizeBasePath(getBaseUrl());
+  const encoded = encodePath(inputPath);
+  return `${base}${encoded}`;
 }
 
 function toFriendlyLabel(fileName) {
@@ -80,6 +91,7 @@ export async function loadMallAssets() {
     scooterGltf,
     riderGltf,
     characterBaseGltf,
+    // future: could load a separate collision mesh file here if desired
   ] = await Promise.all([
     safeLoad('mall kiosk model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_kiosk.gltf'))),
     safeLoad('column model', () => gltfLoader.loadAsync(resolveAssetPath('assets/mall_column.gltf'))),
@@ -91,6 +103,7 @@ export async function loadMallAssets() {
     safeLoad('base npc model', () => gltfLoader.loadAsync(resolveAssetPath('assets/Character Base.gltf'))),
   ]);
 
+  // Note: all loader functions return lightweight clones; heavy packs load lazily.
 
   const kioskScene = kioskGltf ? kioskGltf.scene : null;
   const columnScene = columnGltf ? columnGltf.scene : null;
@@ -103,6 +116,7 @@ export async function loadMallAssets() {
   const animatedMenVariants = [];
   const animatedWomenVariants = [];
 
+  const collisionOnlyMall = false; // flip true to use “collision-only” layout by default
   if (bannerTexture) {
     bannerTexture.wrapS = RepeatWrapping;
     bannerTexture.wrapT = RepeatWrapping;
@@ -124,6 +138,7 @@ export async function loadMallAssets() {
     characterBaseAnimations: characterBaseGltf ? characterBaseGltf.animations ?? [] : [],
     animatedMenVariants,
     animatedWomenVariants,
+    collisionOnlyMall,
     makeKioskInstance() {
       return kioskScene ? kioskScene.clone(true) : null;
     },

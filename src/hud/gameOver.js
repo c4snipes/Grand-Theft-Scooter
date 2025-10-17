@@ -1,45 +1,89 @@
-// --> HUD Game Over Overlay: simple blocker panel that shows the crash reason.
-export function createGameOverOverlay(onReset) {
+export function createGameOverOverlay(onRestart = () => {}) {
   const root = document.createElement('div');
-  root.id = 'game-over-overlay';
-  root.className = 'game-over';
+  Object.assign(root.style, {
+    position: 'fixed',
+    inset: '0',
+    background: 'rgba(0, 0, 0, 0.6)',
+    display: 'none',
+    zIndex: '50',
+    alignItems: 'center',
+    justifyContent: 'center',
+  });
+  document.body.appendChild(root);
+
+  const panel = document.createElement('div');
+  Object.assign(panel.style, {
+    background: 'rgba(18, 22, 30, 0.96)',
+    color: '#eef3ff',
+    borderRadius: '14px',
+    padding: '22px 24px',
+    minWidth: '280px',
+    maxWidth: '80vw',
+    boxShadow: '0 18px 38px rgba(0, 0, 0, 0.4)',
+    textAlign: 'center',
+  });
+  root.appendChild(panel);
 
   const title = document.createElement('h2');
   title.textContent = 'Game Over';
-  title.className = 'game-over__title';
-  root.appendChild(title);
+  Object.assign(title.style, { margin: '0 0 8px', fontSize: '20px' });
+  panel.appendChild(title);
 
-  const reasonLine = document.createElement('p');
-  reasonLine.textContent = '';
-  reasonLine.className = 'game-over__reason';
-  root.appendChild(reasonLine);
+  const message = document.createElement('p');
+  message.textContent = '';
+  Object.assign(message.style, { margin: '0 0 16px', fontSize: '16px', opacity: '0.9' });
+  panel.appendChild(message);
 
-  const resetButton = document.createElement('button');
-  resetButton.type = 'button';
-  resetButton.textContent = 'Try Again';
-  resetButton.className = 'game-over__button';
-  resetButton.addEventListener('click', () => {
-    if (typeof onReset === 'function') {
-      onReset();
-    } else {
-      window.location.reload();
-    }
+  const buttons = document.createElement('div');
+  Object.assign(buttons.style, { display: 'flex', gap: '12px', justifyContent: 'center' });
+  panel.appendChild(buttons);
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Try Again';
+  Object.assign(retry.style, {
+    padding: '10px 14px',
+    borderRadius: '10px',
+    background: '#4f46e5',
+    color: '#fff',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: '600',
   });
-  root.appendChild(resetButton);
+  buttons.appendChild(retry);
 
-  document.body.appendChild(root);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = 'Close';
+  Object.assign(close.style, {
+    padding: '10px 14px',
+    borderRadius: '10px',
+    background: '#111827',
+    color: '#cbd5e1',
+    border: '1px solid #1f2937',
+    cursor: 'pointer',
+    fontWeight: '600',
+  });
+  buttons.appendChild(close);
 
-  function show(reason) {
-    reasonLine.textContent = reason ?? 'The scooter has seen better days.';
-    root.classList.add('game-over--visible');
+  function show(text = '') {
+    if (text) {
+      message.textContent = text;
+    } else {
+      message.textContent = '';
+    }
+    root.style.display = 'flex';
   }
 
   function hide() {
-    root.classList.remove('game-over--visible');
+    root.style.display = 'none';
   }
 
-  return {
-    show,
-    hide,
-  };
+  retry.addEventListener('click', () => {
+    try { hide(); } catch (_) {}
+    try { onRestart(); } catch (_) {}
+  });
+  close.addEventListener('click', hide);
+
+  return { show, hide, dispose() { if (root && root.parentNode) root.parentNode.removeChild(root); } };
 }

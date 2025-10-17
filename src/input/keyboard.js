@@ -35,6 +35,10 @@ export function createKeyboardControls(layout = 'hybrid') {
   }
 
   function handleKeyDown(event) {
+    // Prevent accidental page scroll on space in some browsers (only when focused in game)
+    if (event.key === ' ' && event.target === document.body) {
+      event.preventDefault();
+    }
     activeKeys.add(event.key.toLowerCase());
   }
 
@@ -82,3 +86,5 @@ export function createKeyboardControls(layout = 'hybrid') {
     },
   };
 }
+
+// Keyboard controls return a normalized state for forward/backward/left/right each frame.

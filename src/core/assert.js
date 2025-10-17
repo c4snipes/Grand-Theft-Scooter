@@ -38,3 +38,5 @@ export function warnOnce(key, message, context) {
     }
   }
 }
+
+export function noop() {}

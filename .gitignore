@@ -39,7 +39,7 @@ node_modules/
 dist/
 build/
 /.output/
-
+.codebuddy
 # Vite / cache / test
 .vite/
 .vitepress/

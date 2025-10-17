@@ -96,6 +96,11 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
   let openState = false;
   let hideTimer = null;
 
+  // Ensure settings are hidden and non-interactive by default
+  root.hidden = true;
+  root.classList.remove('settings--visible');
+  root.style.pointerEvents = 'none';
+
   function syncControlInputs() {
     controlInputs.forEach((input) => {
       input.checked = input.value === settings.controlScheme;

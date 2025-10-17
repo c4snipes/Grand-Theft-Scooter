@@ -29,17 +29,18 @@ export function createPhysicsWorld() {
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   world.addBody(groundBody);
 
+  // Tuning contact pairs for predictable ricochet-less sliding
   world.addContactMaterial(new ContactMaterial(materials.player, materials.ground, {
     friction: 0.65,
     restitution: 0.05,
-    contactEquationStiffness: 1e7,
+    contactEquationStiffness: 10000000,
     contactEquationRelaxation: 2,
   }));
 
   world.addContactMaterial(new ContactMaterial(materials.dynamic, materials.ground, {
     friction: 0.8,
     restitution: 0.15,
-    contactEquationStiffness: 5e6,
+    contactEquationStiffness: 5000000,
     contactEquationRelaxation: 3,
   }));
 
@@ -47,5 +48,6 @@ export function createPhysicsWorld() {
 }
 
 export function stepPhysics(world, delta) {
-  world.step(1 / 60, delta, 3);
+  // Fixed step with a small max substeps for consistency and performance
+  world.step(1 / 60, delta, 2);
 }

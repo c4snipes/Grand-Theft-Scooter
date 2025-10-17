@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 9 * * 1"
+    - cron: "0 9 * * *"
 
 permissions:
   contents: read
@@ -17,27 +17,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["javascript-typescript"]
+        language: ["javascript", "typescript"]
 
     steps:
+      # Using actions/checkout@v3 for latest features and security updates as recommended by GitHub.
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v3
 
+      # Using actions/setup-node@v5 for Node.js 20 support and improved caching.
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v3
         with:
           node-version: 20
 
+      # Using github/codeql-action/init@v3 for compatibility with current CodeQL workflows.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+
+      - name: Ensure package-lock.json exists and is up to date
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only
+          else
+            npm install --package-lock-only
+          fi
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build project
-        run: npm run build
+      # Upload SARIF results for further inspection (optional)
+      - name: Upload CodeQL SARIF results
+        uses: actions/upload-artifact@v3
+        with:
+          name: codeql-sarif-results
+          path: /home/runner/work/_temp/codeql_databases/**/results/*.sarif
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3

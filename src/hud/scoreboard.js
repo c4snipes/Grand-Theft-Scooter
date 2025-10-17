@@ -1,4 +1,5 @@
 const DEFAULT_MESSAGE_DURATION = 3200;
+const Hint = Object.freeze({ Short: 2600, Long: 4800 });
 
 function createMetric(list, label, initialValue) {
   const term = document.createElement('dt');
@@ -140,6 +141,10 @@ export function createScoreboard() {
     panel.style.display = dashboardVisible ? 'block' : 'none';
   }
 
+  function clamp(number, min, max) {
+    return Math.min(max, Math.max(min, number));
+  }
+
   render();
 
   return {
@@ -155,12 +160,8 @@ export function createScoreboard() {
       return totals.score;
     },
     updateTelemetry(patch = {}) {
-      if (typeof patch.speed === 'number') {
-        totals.speed = patch.speed;
-      }
-      if (typeof patch.topSpeed === 'number') {
-        totals.topSpeed = patch.topSpeed;
-      }
+      if (typeof patch.speed === 'number') totals.speed = clamp(patch.speed, 0, 150);
+      if (typeof patch.topSpeed === 'number') totals.topSpeed = Math.max(0, patch.topSpeed);
       if (typeof patch.hits === 'number') {
         totals.targets = patch.hits;
       }
@@ -211,6 +212,15 @@ export function createScoreboard() {
     },
     isDashboardVisible() {
       return dashboardVisible;
+    },
+    hint(message, duration = Hint.Long) {
+      this.setMessage(message, { duration });
+    },
+    dispose() {
+      // detach DOM
+      if (root && root.parentNode) {
+        root.parentNode.removeChild(root);
+      }
     },
   };
 }

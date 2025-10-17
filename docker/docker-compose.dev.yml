@@ -4,7 +4,10 @@ services:
     working_dir: /app
     volumes:
       - ../:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
     command: sh -c "if [ -f package-lock.json ]; then npm ci; else npm i; fi && npm run dev -- --host 0.0.0.0 --port 5173 --strictPort"
     ports:
       - "5173:5173"
+
+volumes:
+  node_modules:
