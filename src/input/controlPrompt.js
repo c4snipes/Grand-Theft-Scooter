@@ -11,6 +11,9 @@ function getDefaultSettings() {
   return {
     controlScheme: 'wasd',
     theme: detectPreferredTheme(),
+    cameraSensitivity: 'normal',
+    shadows: false,
+    debugMarkers: false,
   };
 }
 
@@ -50,6 +53,9 @@ function readStoredSettings() {
     return {
       controlScheme: parsed.controlScheme === 'arrows' ? 'arrows' : defaults.controlScheme,
       theme: parsed.theme === 'light' ? 'light' : 'dark',
+      cameraSensitivity: ['low', 'normal', 'high'].includes(parsed.cameraSensitivity) ? parsed.cameraSensitivity : defaults.cameraSensitivity,
+      shadows: typeof parsed.shadows === 'boolean' ? parsed.shadows : defaults.shadows,
+      debugMarkers: typeof parsed.debugMarkers === 'boolean' ? parsed.debugMarkers : defaults.debugMarkers,
     };
   } catch (error) {
     console.warn('[settings] Unable to parse stored settings, falling back to defaults.', error);
@@ -73,7 +79,7 @@ function applyDocumentTheme(theme) {
   document.documentElement.setAttribute('data-theme', mode);
 }
 
-export function createSettingsManager({ onControlSchemeChange, onThemeChange } = {}) {
+export function createSettingsManager({ onControlSchemeChange, onThemeChange, onCameraSensitivityChange, onGraphicsChange, onDebugChange } = {}) {
   if (typeof window === 'undefined') {
     return createUnavailableSettingsManager('Settings unavailable outside a browser context.');
   }
@@ -86,6 +92,10 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
 
   const controlInputs = Array.from(root.querySelectorAll('[data-control-option]'));
   const themeInputs = Array.from(root.querySelectorAll('[data-theme-option]'));
+  const sensitivityInputs = Array.from(root.querySelectorAll('[data-sensitivity-option]'));
+  const shadowsInput = root.querySelector('[data-shadows-option]');
+  const debugMarkersInput = root.querySelector('[data-debug-markers-option]');
+
   const closeTriggers = Array.from(root.querySelectorAll('[data-settings-close]'));
 
   const settings = {
@@ -101,9 +111,23 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
   root.classList.remove('settings--visible');
   root.style.pointerEvents = 'none';
 
+  function isUiLocked() {
+    try {
+      return !!document.documentElement && document.documentElement.classList.contains('ui-locked');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function syncControlInputs() {
     controlInputs.forEach((input) => {
       input.checked = input.value === settings.controlScheme;
+    });
+  }
+
+  function syncSensitivityInputs() {
+    sensitivityInputs.forEach((input) => {
+      input.checked = input.value === settings.cameraSensitivity;
     });
   }
 
@@ -125,6 +149,24 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
     }
   }
 
+  function emitSensitivityChange() {
+    if (typeof onCameraSensitivityChange === 'function') {
+      onCameraSensitivityChange(settings.cameraSensitivity);
+    }
+  }
+
+  function emitGraphicsChange() {
+    if (typeof onGraphicsChange === 'function') {
+      onGraphicsChange({ shadows: !!settings.shadows });
+    }
+  }
+
+  function emitDebugChange() {
+    if (typeof onDebugChange === 'function') {
+      onDebugChange(!!settings.debugMarkers);
+    }
+  }
+
   function applyControlScheme(nextScheme, { emit = true } = {}) {
     const normalized = nextScheme === 'arrows' ? 'arrows' : 'wasd';
     if (settings.controlScheme === normalized) return;
@@ -132,6 +174,15 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
     syncControlInputs();
     persistSettings(settings);
     if (emit) emitControlChange();
+  }
+
+  function applyCameraSensitivity(next, { emit = true } = {}) {
+    const normalized = ['low', 'normal', 'high'].includes(next) ? next : 'normal';
+    if (settings.cameraSensitivity === normalized) return;
+    settings.cameraSensitivity = normalized;
+    syncSensitivityInputs();
+    persistSettings(settings);
+    if (emit) emitSensitivityChange();
   }
 
   function applyTheme(nextTheme, { emit = true } = {}) {
@@ -146,12 +197,16 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
 
   function open() {
     if (openState) return;
+    if (isUiLocked()) {
+      return;
+    }
     openState = true;
     if (hideTimer) {
       window.clearTimeout(hideTimer);
       hideTimer = null;
     }
     root.hidden = false;
+    root.style.pointerEvents = 'auto';
     requestAnimationFrame(() => {
       root.classList.add('settings--visible');
     });
@@ -165,6 +220,7 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
     if (!openState) return;
     openState = false;
     root.classList.remove('settings--visible');
+    root.style.pointerEvents = 'none';
     hideTimer = window.setTimeout(() => {
       if (!openState) {
         root.hidden = true;
@@ -178,6 +234,11 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
 
   function handleKeydown(event) {
     if (event.key !== 'Escape') return;
+    if (!openState && isUiLocked()) {
+      event.preventDefault();
+      return;
+
+    }
     if (openState) {
       event.preventDefault();
       close();
@@ -198,6 +259,7 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
 
   controlInputs.forEach((input) => {
     input.addEventListener('change', () => {
+      if (!openState) return;
       applyControlScheme(input.value);
     });
   });
@@ -213,18 +275,70 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange } =
       event.preventDefault();
       close();
     });
+
   });
 
   // Initial sync applies the saved state, then notifies the rest of the app once.
   syncControlInputs();
   applyDocumentTheme(settings.theme);
   syncThemeInputs();
+  syncSensitivityInputs();
+
+  sensitivityInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!openState) return;
+      applyCameraSensitivity(input.value);
+    });
+  });
+
+  function syncShadowsInput() {
+    if (shadowsInput) {
+      shadowsInput.checked = !!settings.shadows;
+    }
+  }
+
+  function syncDebugMarkersInput() {
+    if (debugMarkersInput) {
+      debugMarkersInput.checked = !!settings.debugMarkers;
+    }
+  }
+
+  if (shadowsInput) {
+    shadowsInput.addEventListener('change', () => {
+      settings.shadows = !!shadowsInput.checked;
+      persistSettings(settings);
+      emitGraphicsChange();
+    });
+  }
+
+  if (debugMarkersInput) {
+    debugMarkersInput.addEventListener('change', () => {
+      settings.debugMarkers = !!debugMarkersInput.checked;
+      persistSettings(settings);
+      emitDebugChange();
+    });
+  }
+
+  // Initial sync applies the saved state, then notifies the rest of the app once.
+  syncControlInputs();
+  applyDocumentTheme(settings.theme);
+  syncThemeInputs();
+  syncSensitivityInputs();
+  syncShadowsInput();
+  syncDebugMarkersInput();
+
+  emitSensitivityChange();
   emitControlChange();
   emitThemeChange();
+  emitGraphicsChange();
+  emitDebugChange();
 
   return {
     getControlScheme: () => settings.controlScheme,
     getTheme: () => settings.theme,
+    getCameraSensitivity: () => settings.cameraSensitivity,
+    getShadowsEnabled: () => !!settings.shadows,
+    getDebugMarkersEnabled: () => !!settings.debugMarkers,
     open,
     close,
     isOpen,

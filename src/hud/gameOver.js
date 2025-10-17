@@ -5,7 +5,7 @@ export function createGameOverOverlay(onRestart = () => {}) {
     inset: '0',
     background: 'rgba(0, 0, 0, 0.6)',
     display: 'none',
-    zIndex: '50',
+    zIndex: '1000',
     alignItems: 'center',
     justifyContent: 'center',
   });

@@ -53,6 +53,8 @@ To set up the project locally, ensure you have the following installed:
 ./scripts/setup.sh --help       # Show all options
 ```
 
+> `scripts/setup.sh` replaces the separate `ensure-deps.sh` and `optimize-assets.sh` helpers; use the flags above to target specific tasks.
+
 #### Windows (PowerShell)
 
 ```powershell
@@ -95,39 +97,23 @@ If you prefer to set up manually:
 
 ## Command Reference
 
-### Quick Commands (with Make)
+The Makefile now keeps things small by default:
+
+- `make help` – essential day-to-day targets
+- `make help-extra` – everything else (tooling, Docker, releases)
+- `make help-all` – both sections in one run
+
+Daily drivers:
 
 ```bash
-make start         # Install deps + start dev (recommended)
-make dev           # Start dev server on localhost:5173
-make docker        # Start docker-compose (foreground)
-make stop-all      # Stop all running services
-make help          # Show all available commands
+make start   # Install deps + start dev server
+make dev     # Run Vite on $(HOST):$(PORT)
+make check   # Lint + typecheck + tests
+make build   # Production build artifacts
+make docker  # Launch docker-compose stack
 ```
 
-### Development Commands
-
-```bash
-make build         # Build production assets
-make preview       # Preview production build
-make check         # Run lint + typecheck + tests
-make doctor        # Full environment health check
-make assets        # Verify 3D assets are present
-make optimize      # Optimize GLB/GLTF with Draco compression
-make clean         # Remove node_modules and dist
-```
-
-### Docker Commands
-
-```bash
-make docker-dev    # docker-compose up --build
-make up            # docker-compose up -d (detached)
-make down          # docker-compose down
-make docker-logs   # View logs
-make docker-shell  # Open shell in container
-```
-
-### Without Make (npm commands)
+Prefer npm scripts? They still work:
 
 ```bash
 npm ci             # Install dependencies

@@ -13,6 +13,7 @@ import { loadMallAssets, loadNpcPacks } from './core/assets';
 import { assertDefined, invariant } from './core/assert';
 import { createSpawnSelector } from './systems/spawnSelector';
 import { createGameLoop } from './systems/gameLoop';
+import { createDebugMarkers } from './debug/markers';
 
 function updateHudHints(layout) {
   const accelerateEl = document.querySelector('[data-hint-accelerate]');
@@ -64,15 +65,29 @@ async function startGame() {
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
     if (isSpawnSelectorActive()) return;
+  function applyCameraSensitivity(mode) {
+    const s = (mode === 'low') ? { rot: 0.6, zoom: 0.8, pan: 0.6 }
+      : (mode === 'high') ? { rot: 1.6, zoom: 1.4, pan: 1.6 }
+      : { rot: 1.0, zoom: 1.0, pan: 1.0 };
+    try {
+      if (orbitControls) {
+        orbitControls.rotateSpeed = s.rot;
+        orbitControls.zoomSpeed = s.zoom;
+        orbitControls.panSpeed = s.pan;
+        orbitControls.update();
+      }
+    } catch (_) {}
+  }
+
     const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
     if (cameraMode === 'orbit') {
       scoreboard.setMessage(
-        `Free camera active. Use ${schemeLabel} to glide the camera. Drag to look around, scroll to zoom, press C to get back on the scooter, R to reposition your ride, Esc for settings.`,
+        'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
         { duration: 4200 },
       );
     } else {
       scoreboard.setMessage(
-        `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera, R to reposition your ride, Esc for settings.`,
+        `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`,
         { duration: 4200 },
       );
     }
@@ -90,6 +105,19 @@ async function startGame() {
     onThemeChange: (themeMode) => {
       applyEnvironmentTheme(themeMode);
     },
+    onCameraSensitivityChange: (mode) => {
+      applyCameraSensitivity(mode);
+    },
+    onGraphicsChange: (g) => {
+      try { setShadows?.(!!g?.shadows); } catch (_) {}
+    },
+    onDebugChange: (enabled) => {
+      try {
+        window.DEBUG_SPAWN = !!enabled;
+        debug.setEnabled(!!enabled);
+        console.info('[debug] markers', enabled ? 'enabled' : 'disabled', '(via Settings)');
+      } catch (_) {}
+    },
   });
 
   activeLayout = settings.getControlScheme();
@@ -105,11 +133,15 @@ async function startGame() {
     handleResize,
     controls: orbitControls,
     setColorMode,
+    setShadowsEnabled,
     dispose: disposeEnvironment,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
   invariant(renderer && typeof renderer.render === 'function', 'createEnvironment must supply a renderer with render().');
   invariant(scene && typeof scene.add === 'function', 'createEnvironment must supply a valid scene.');
   invariant(camera && typeof camera.isCamera === 'boolean', 'createEnvironment must supply a THREE camera.');
+  // Apply camera sensitivity based on user setting
+  try { applyCameraSensitivity(settings.getCameraSensitivity?.() || 'normal'); } catch (_) {}
+
   invariant(typeof setCameraMode === 'function', 'createEnvironment must supply setCameraMode().');
   invariant(typeof updateCamera === 'function', 'createEnvironment must supply updateCamera().');
   invariant(typeof handleResize === 'function', 'createEnvironment must supply handleResize().');
@@ -117,6 +149,25 @@ async function startGame() {
   invariant(typeof setColorMode === 'function', 'createEnvironment must supply setColorMode().');
   applyEnvironmentTheme = setColorMode;
   applyEnvironmentTheme(settings.getTheme());
+  const setShadows = setShadowsEnabled;
+  try { setShadows?.(!!settings.getShadowsEnabled?.()); } catch (_) {}
+
+  // Debug markers setup and toggle (F9) for spawn/floor diagnostics
+  const debug = createDebugMarkers(scene);
+  try {
+    // Initialize from persisted setting
+    const initial = !!settings.getDebugMarkersEnabled?.();
+    window.DEBUG_SPAWN = initial;
+    debug.setEnabled(initial);
+    window.toggleDebugMarkers = () => {
+      window.DEBUG_SPAWN = !window.DEBUG_SPAWN;
+      debug.setEnabled(window.DEBUG_SPAWN);
+      console.info('[debug] markers', window.DEBUG_SPAWN ? 'enabled' : 'disabled');
+    };
+    window.addEventListener('keydown', (ev) => {
+      if (ev.key === 'F9') { ev.preventDefault?.(); window.toggleDebugMarkers(); }
+    });
+  } catch (_) {}
 
   // Determine mall floor height under a given (x,z) so we can spawn above it
   const floorRaycaster = new Raycaster();
@@ -128,7 +179,11 @@ async function startGame() {
     floorRayStart.set(x, 1000, z);
     floorRaycaster.set(floorRayStart, floorRayDir);
     const hits = floorRaycaster.intersectObject(mallObj, true);
-    if (Array.isArray(hits) && hits.length > 0) return hits[0].point.y;
+    if (Array.isArray(hits) && hits.length > 0) {
+      const y = hits[0].point.y;
+      if (window.DEBUG_SPAWN) { try { debug.setFloorHit(x, y, z); } catch (_) {} }
+      return y;
+    }
     return 0;
   }
 
@@ -186,7 +241,7 @@ async function startGame() {
       const size = bounds.getSize(new Vector3());
       const center = bounds.getCenter(new Vector3());
       const floorY = getMallFloorYAt(center.x, center.z);
-      const slabHeight = 0.5;
+      const slabHeight = 1.0; // thicker slab to reduce chance of tunneling
       const halfX = Math.max(2, size.x / 2 + 1.0);
       const halfZ = Math.max(2, size.z / 2 + 1.0);
       const floorBody = new Body({
@@ -196,6 +251,7 @@ async function startGame() {
       });
       if (materials && materials.ground) floorBody.material = materials.ground;
       world.addBody(floorBody);
+      if (window.DEBUG_SPAWN) { try { debug.showFloorSlab({ x: 0, y: floorY + slabHeight / 2, z: 0, hx: halfX, hy: slabHeight / 2, hz: halfZ }); } catch (_) {} }
     }
   } catch (e) {
     console.warn('[physics] Failed to add mall physics floor:', e);
@@ -299,6 +355,18 @@ async function startGame() {
       let target = mall.findNearestNavigablePoint(previous, 3.6, { ignoreBodies: [scooter.body] });
 
       if (interactive) {
+        // Lock UI so settings cannot be opened/changed during spawn selection
+        try { document.documentElement.classList.add('ui-locked'); } catch (_) {}
+        try { settings.close?.(); } catch (_) {}
+
+
+	        // Let the user orbit/pan/zoom the camera while choosing spawn
+	        const prevCameraMode = cameraMode;
+	        if (prevCameraMode !== 'orbit') {
+	          cameraMode = 'orbit';
+	          setCameraMode(cameraMode);
+	        }
+
         scoreboard.setMessage(
           'Click the floor to deploy your scooter. Press Enter to confirm or Esc to use the suggested spot.',
           { duration: 0 },
@@ -310,6 +378,8 @@ async function startGame() {
         } finally {
           spawnPreviewActive = false;
           if (spawnPreviewFrameId !== null) {
+              try { document.documentElement.classList.remove('ui-locked'); } catch (_) {}
+
             cancelAnimationFrame(spawnPreviewFrameId);
             spawnPreviewFrameId = null;
           }
@@ -322,13 +392,18 @@ async function startGame() {
       const safe = mall.findNearestNavigablePoint(target, 3.6, { ignoreBodies: [scooter.body] });
       const halfY = scooter?.body?.shapes?.[0]?.halfExtents?.y ?? (SCOOTER_SPAWN_HEIGHT - 0.05);
       const floorY = getMallFloorYAt(safe.x, safe.z);
-      const spawnY = Math.max(SCOOTER_SPAWN_HEIGHT, (floorY || 0) + halfY + 0.02);
+      const spawnY = Math.max(SCOOTER_SPAWN_HEIGHT, (floorY || 0) + halfY + 0.05);
+      if (window.DEBUG_SPAWN) {
+        console.debug('[spawn] floorY:', floorY?.toFixed?.(3), 'halfY:', halfY?.toFixed?.(3), 'spawnY:', spawnY?.toFixed?.(3));
+      }
       spawnPoint.set(safe.x, spawnY, safe.z);
       scooter.body.velocity.set(0, 0, 0);
       scooter.body.angularVelocity.set(0, 0, 0);
       scooter.body.position.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);
       scooter.body.quaternion.set(spawnQuaternion.x, spawnQuaternion.y, spawnQuaternion.z, spawnQuaternion.w);
       scooter.sync(0);
+      if (window.DEBUG_SPAWN) { try { debug.setSpawnMarker(spawnPoint.x, spawnPoint.y, spawnPoint.z); } catch (_) {} }
+      try { scooter.body.wakeUp?.(); } catch (_) {}
       orbitControls.target.copy(scooter.mesh.position);
       orbitControls.update();
       if (cameraMode !== 'follow') {

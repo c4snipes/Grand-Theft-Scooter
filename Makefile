@@ -13,7 +13,7 @@ PREVIEW_FLAGS ?= --host $(HOST) --port $(PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help ensure-deps setup dev docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets optimize stop-all compose start docker-all
+.PHONY: help help-extra help-all ensure-deps setup dev docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets optimize stop-all compose start docker-all
 
 start: setup dev
 
@@ -21,38 +21,38 @@ docker-all: docker-build docker-tag docker-push
 
 help:
 	@printf 'Usage: make <target>\n\n'
-	@printf '🚀 Quick Start (choose one):\n'
+	@printf '⚡ Essentials:\n'
 	@printf '  make start         Install deps + start dev server (recommended)\n'
-	@printf '  make docker        Start docker-compose dev stack in foreground\n\n'
-	@printf '🔧 Development:\n'
+	@printf '  make setup         Install dependencies (npm ci)\n'
 	@printf '  make dev           Start development server on $(HOST):$(PORT)\n'
-	@printf '  make stop-all      Stop all running services\n'
+	@printf '  make check         Run lint, typecheck, and tests\n'
+	@printf '  make build         Build production assets\n'
+	@printf '  make clean         Remove node_modules and dist\n'
+	@printf '  make docker        Start docker-compose dev stack in foreground\n\n'
+	@printf 'Need more? Run: make help-extra (or make help-all)\n'
+
+help-extra:
+	@printf '🧰 Tooling & validation:\n'
+	@printf '  make ensure-deps   Verify Node/npm and run full validation\n'
+	@printf '  make doctor        Full health check (ensure-deps + check)\n'
 	@printf '  make assets        Verify GLTF and texture assets are present\n'
 	@printf '  make optimize      Optimize GLB/GLTF assets with Draco compression\n'
-	@printf '  make preview       Preview production build on $(HOST):$(PORT)\n\n'
-	@printf '✅ Setup & Validation:\n'
-	@printf '  make ensure-deps   Verify Node/npm and run full validation\n'
-	@printf '  make setup         Install dependencies (npm ci)\n'
-	@printf '  make check         Run lint, typecheck, and tests\n'
-	@printf '  make doctor        Full health check (ensure-deps + check)\n\n'
-	@printf '📦 Build & Clean:\n'
-	@printf '  make build         Build production assets\n'
-	@printf '  make clean         Remove node_modules and dist\n\n'
-	@printf '🐳 Docker Workflow:\n'
+	@printf '  make preview       Preview production build on $(HOST):$(PORT)\n'
+	@printf '  make stop-all      Stop all running services\n'
+	@printf '  scripts/setup.sh --help  Unified setup tool (deps/assets/optimize)\n\n'
+	@printf '🐳 Docker & releases:\n'
 	@printf '  make docker-dev    Start docker-compose with --build\n'
 	@printf '  make up            Start docker-compose (detached)\n'
 	@printf '  make down          Stop docker-compose\n'
 	@printf '  make docker-logs   Tail docker-compose logs\n'
-	@printf '  make docker-shell  Open shell in $(SERVICE) container\n\n'
-	@printf '🏷️  Container Registry (ghcr.io - GitHub Container Registry):\n'
-	@printf '  make docker-build  Build production image ($(IMAGE))\n'
+	@printf '  make docker-shell  Open shell in $(SERVICE) container\n'
 	@printf '  make docker-run    Run production image on port 8080\n'
+	@printf '  make docker-build  Build production image ($(IMAGE))\n'
 	@printf '  make docker-tag    Tag image for $(REPO)\n'
 	@printf '  make docker-push   Push to GitHub Container Registry\n'
-	@printf '  make docker-all    Build + tag + push (full release)\n\n'
-	@printf 'ℹ️  Docker vs GHCR: Docker is the container technology (build/run).\n'
-	@printf '   GHCR.io is GitHubs storage for images, like Docker Hub but\n'
-	@printf '   integrated with GitHub Actions and repos.\n'
+	@printf '  make docker-all    Build + tag + push (full release)\n'
+
+help-all: help help-extra
 
 ensure-deps:
 	./scripts/setup.sh --only-deps

@@ -31,6 +31,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement("file", "public/assets/mall_kiosk.gltf", "Mall kiosk model"),
+    Requirement("file", "public/assets/mall_floor_tile.gltf", "Mall floor tile model"),
+    Requirement("file", "public/assets/mall_floor.png", "Mall floor texture"),
     Requirement("file", "public/assets/mall_column.gltf", "Mall column model"),
     Requirement("file", "public/assets/mall_banner.gltf", "Mall banner structure"),
     Requirement("file", "public/assets/mall_banner.png", "Mall banner texture"),

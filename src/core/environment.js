@@ -17,8 +17,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // --> Core Environment: I pieced this together from a few tutorials so the scene actually shows up.
 export function createEnvironment(canvas, assets = {}, options = {}) {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
   renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Central toggle for runtime shadows; off by default for performance.
+  let SHADOWS_ENABLED = false;
+  renderer.shadowMap.enabled = SHADOWS_ENABLED;
+
 
   const scene = new Scene();
   scene.background = new Color('#dfe6ef');
@@ -36,6 +41,8 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   controls.maxPolarAngle = Math.PI / 2.05;
   controls.target.set(0, 2, 0);
   controls.enabled = false;
+  controls.enableKeys = false; // Disable arrow/WASD key panning for free cam
+
   controls.update();
   controls.addEventListener('start', () => {
     renderer.domElement.style.cursor = 'grabbing';
@@ -53,7 +60,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
 
   const sun = new DirectionalLight(0xfff5dd, 1.2);
   sun.position.set(12, 24, 10);
-  sun.castShadow = true;
+  sun.castShadow = SHADOWS_ENABLED;
   scene.add(sun);
 
   // Flat ground so the physics bodies have something to collide with.
@@ -71,7 +78,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     mall.name = 'shopping-mall';
     const mallScale = 24;
     mall.scale.setScalar(mallScale);
-    const characterNamePattern = /character|people|person|crowd|npc|male|female|man|woman|boy|girl/;
+    const characterNamePattern = /character|people|person|crowd|npc|male|female|man|woman|boy|girl|standee|cutout|cardboard/;
     mall.traverse((child) => {
       const name = typeof child.name === 'string' ? child.name.toLowerCase() : '';
       if (name && characterNamePattern.test(name)) {
@@ -79,8 +86,8 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
         return;
       }
       if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = SHADOWS_ENABLED;
+        child.receiveShadow = SHADOWS_ENABLED;
         if (Array.isArray(child.material)) {
           child.material.forEach((mat) => {
             if (mat && mat.map) {
@@ -199,6 +206,23 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     }
   }
 
+  function setShadowsEnabled(enabled) {
+    const next = !!enabled;
+    if (SHADOWS_ENABLED === next) return;
+    SHADOWS_ENABLED = next;
+    renderer.shadowMap.enabled = SHADOWS_ENABLED;
+    try { sun.castShadow = SHADOWS_ENABLED; } catch (_) {}
+    try {
+      // Update all current meshes to reflect new shadow setting
+      scene.traverse((child) => {
+        if (child && child.isMesh) {
+          child.castShadow = SHADOWS_ENABLED;
+          child.receiveShadow = SHADOWS_ENABLED;
+        }
+      });
+    } catch (_) {}
+  }
+
   return {
     renderer,
     scene,
@@ -210,6 +234,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     handleResize,
     controls,
     setColorMode,
+    setShadowsEnabled,
     dispose: () => {
       try { controls?.dispose?.(); } catch (_) {}
       if (removeColorSchemeListener) {

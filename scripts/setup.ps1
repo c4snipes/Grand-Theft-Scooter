@@ -88,6 +88,19 @@ function Test-CommandExists {
     $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function Get-PythonCommand {
+    if (Test-CommandExists "python") {
+        return @("python")
+    }
+    if (Test-CommandExists "python3") {
+        return @("python3")
+    }
+    if (Test-CommandExists "py") {
+        return @("py", "-3")
+    }
+    return @()
+}
+
 function Get-NodeMajorVersion {
     try {
         $version = node -v 2>$null
@@ -206,8 +219,9 @@ function Install-ProjectDependencies {
 function Test-Assets {
     Write-Log "Verifying game assets..."
     
-    if (-not (Test-CommandExists "python")) {
-        Write-Warning "Python not found. Skipping asset verification."
+    $pythonCmd = Get-PythonCommand
+    if ($pythonCmd.Count -eq 0) {
+        Write-Warning "Python 3 runtime not found. Skipping asset verification."
         Write-Warning "Install Python 3 from https://www.python.org/ to enable asset checks."
         return
     }
@@ -219,7 +233,15 @@ function Test-Assets {
     }
 
     try {
-        python $checkScript --root $RepoRoot
+        $command = $pythonCmd[0]
+        $args = @()
+        if ($pythonCmd.Count -gt 1) {
+            $args += $pythonCmd[1..($pythonCmd.Count - 1)]
+        }
+        $args += @($checkScript, "--root", $RepoRoot)
+
+        Write-Log "Running $($pythonCmd -join ' ') $($args[0]) --root ..."
+        & $command @args
         if ($LASTEXITCODE -ne 0) {
             Exit-WithError "Asset verification failed. Please ensure all required assets are present."
         }
@@ -364,7 +386,7 @@ function Report-OptionalDependencies {
     if (-not (Test-CommandExists "make")) {
         Write-Warning "GNU Make not detected. Optional Make targets will not be available."
     }
-    if (-not (Test-CommandExists "python")) {
+    if ((Get-PythonCommand).Count -eq 0) {
         Write-Warning "Python not detected. Asset verification will be skipped."
     }
 }

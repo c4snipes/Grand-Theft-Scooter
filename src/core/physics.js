@@ -11,8 +11,13 @@ import {
 // --> Core Physics: constructs the physics world and exposes a fixed-step integrator.
 export function createPhysicsWorld() {
   const world = new World({ gravity: new Vec3(0, -9.82, 0) });
-  world.allowSleep = false;
+  world.allowSleep = true; // Let inactive bodies sleep to save CPU
   world.broadphase = new SAPBroadphase(world);
+  // Slightly relax solver for performance; leave stability to contact params
+  if (world.solver) {
+    world.solver.iterations = Math.min(10, Math.max(5, (world.solver.iterations ?? 10) - 3));
+    world.solver.tolerance = 0.001;
+  }
 
   const materials = {
     ground: new Material('ground'),
@@ -48,6 +53,6 @@ export function createPhysicsWorld() {
 }
 
 export function stepPhysics(world, delta) {
-  // Fixed step with a small max substeps for consistency and performance
-  world.step(1 / 60, delta, 2);
+  // Fixed step with a slightly higher max substeps for robustness against tunneling
+  world.step(1 / 60, delta, 4);
 }

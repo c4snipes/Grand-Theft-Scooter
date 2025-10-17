@@ -23,8 +23,9 @@ export function createGameLoop({
   let dynamicPixelRatio = basePixelRatio;
   let fpsEMA = 60;
 
+  const FREECAM_KEYBOARD_ENABLED = false;
   function updateFreeCameraMovement(delta, input) {
-    if (!isFreeCameraActive()) return;
+    if (!isFreeCameraActive() || !FREECAM_KEYBOARD_ENABLED) return;
     const moveZ = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
     const moveX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     if (moveZ === 0 && moveX === 0) return;
