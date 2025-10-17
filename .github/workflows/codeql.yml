@@ -22,17 +22,17 @@ jobs:
     steps:
       # Using actions/checkout@v3 for latest features and security updates as recommended by GitHub.
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Using actions/setup-node@v5 for Node.js 20 support and improved caching.
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # Using github/codeql-action/init@v3 for compatibility with current CodeQL workflows.
+      # Using github/codeql-action/init@v4 for compatibility with current CodeQL workflows.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
@@ -49,10 +49,10 @@ jobs:
 
       # Upload SARIF results for further inspection (optional)
       - name: Upload CodeQL SARIF results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: codeql-sarif-results
           path: /home/runner/work/_temp/codeql_databases/**/results/*.sarif
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4

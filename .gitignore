@@ -6,6 +6,7 @@ dist
 build
 .output
 .codacy
+.codebuddy
 # AudioCache can be rebuilt from sources
 AudioCache/
 
