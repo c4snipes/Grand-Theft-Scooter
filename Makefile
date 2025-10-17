@@ -13,7 +13,7 @@ PREVIEW_FLAGS ?= --host $(HOST) --port $(PORT)
 
 DEFAULT_GOAL := help
 
-.PHONY: help help-extra help-all ensure-deps setup dev docker build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-dev docker-logs docker-shell up down assets optimize stop-all compose start docker-all
+.PHONY: help help-extra help-all setup dev docker docker-stop build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-logs docker-shell stop-all start docker-all
 
 start: setup dev
 
@@ -33,17 +33,17 @@ help:
 
 help-extra:
 	@printf '🧰 Tooling & validation:\n'
-	@printf '  make ensure-deps   Verify Node/npm and run full validation\n'
-	@printf '  make doctor        Full health check (ensure-deps + check)\n'
-	@printf '  make assets        Verify GLTF and texture assets are present\n'
-	@printf '  make optimize      Optimize GLB/GLTF assets with Draco compression\n'
-	@printf '  make preview       Preview production build on $(HOST):$(PORT)\n'
+	@printf '  make setup SETUP_ARGS=\"--only-deps\"      Verify Node/npm\n'
+	@printf '  make setup SETUP_ARGS=\"--only-assets\"   Verify GLTF and texture assets\n'
+	@printf '  make setup SETUP_ARGS=\"--only-optimize\" Optimize GLB/GLTF assets with Draco compression\n'
+	@printf '  make doctor                              Full health check (deps + check)\n'
+	@printf '  make preview                             Preview production build on $(HOST):$(PORT)\n'
 	@printf '  make stop-all      Stop all running services\n'
 	@printf '  scripts/setup.sh --help  Unified setup tool (deps/assets/optimize)\n\n'
 	@printf '🐳 Docker & releases:\n'
-	@printf '  make docker-dev    Start docker-compose with --build\n'
-	@printf '  make up            Start docker-compose (detached)\n'
-	@printf '  make down          Stop docker-compose\n'
+	@printf '  make docker REBUILD=1   Start docker-compose with --build\n'
+	@printf '  make docker DETACH=1    Start docker-compose detached\n'
+	@printf '  make docker-stop        Stop docker-compose stack\n'
 	@printf '  make docker-logs   Tail docker-compose logs\n'
 	@printf '  make docker-shell  Open shell in $(SERVICE) container\n'
 	@printf '  make docker-run    Run production image on port 8080\n'
@@ -54,23 +54,20 @@ help-extra:
 
 help-all: help help-extra
 
-ensure-deps:
-	./scripts/setup.sh --only-deps
-
 setup:
-	./scripts/setup.sh
+	./scripts/setup.sh $(SETUP_ARGS)
 
 
 dev: stop-all
 	@printf 'Starting development server on %s:%s...\n' "$(HOST)" "$(PORT)"
 	$(PKG) run dev -- --host $(HOST) --port $(PORT)
 
-compose:
-	$(DOCKER_COMPOSE) up $(COMPOSE_ARGS)
-
 docker: stop-all
 	@printf 'Starting docker-compose dev stack...\n'
-	$(MAKE) compose
+	$(DOCKER_COMPOSE) up $(if $(REBUILD),--build,) $(if $(DETACH),-d,) $(COMPOSE_ARGS)
+
+docker-stop:
+	$(DOCKER_COMPOSE) down
 
 stop-all:
 	@printf 'Stopping any running services...\n'
@@ -103,13 +100,12 @@ test:
 
 check: lint typecheck test
 
+doctor:
+	$(MAKE) setup SETUP_ARGS="--only-deps"
+	$(MAKE) check
 
-
-assets:
-	./scripts/setup.sh --only-assets
-
-optimize:
-	./scripts/setup.sh --only-optimize
+preview:
+	$(PKG) run preview -- $(PREVIEW_FLAGS)
 
 docker-build:
 	docker build -f docker/Dockerfile -t $(IMAGE) .
@@ -123,18 +119,8 @@ docker-tag:
 docker-push:
 	test -n "$(REPO)" && docker push $(REPO):latest
 
-docker-dev: stop-all
-	@printf 'Starting docker-compose dev stack with --build...\n'
-	$(MAKE) compose COMPOSE_ARGS="--build"
-
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f
 
 docker-shell:
 	$(DOCKER_COMPOSE) exec $(SERVICE) sh
-
-up:
-	$(MAKE) compose COMPOSE_ARGS="-d"
-
-down:
-	$(DOCKER_COMPOSE) down

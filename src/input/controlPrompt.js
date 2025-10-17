@@ -266,6 +266,7 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
 
   themeInputs.forEach((input) => {
     input.addEventListener('change', () => {
+      if (!openState || isUiLocked()) return;
       applyTheme(input.value);
     });
   });
@@ -305,6 +306,10 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
 
   if (shadowsInput) {
     shadowsInput.addEventListener('change', () => {
+      if (!openState || isUiLocked()) { // block background changes while closed/locked
+        shadowsInput.checked = !!settings.shadows; // snap back UI state
+        return;
+      }
       settings.shadows = !!shadowsInput.checked;
       persistSettings(settings);
       emitGraphicsChange();
@@ -313,6 +318,10 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
 
   if (debugMarkersInput) {
     debugMarkersInput.addEventListener('change', () => {
+      if (!openState || isUiLocked()) {
+        debugMarkersInput.checked = !!settings.debugMarkers;
+        return;
+      }
       settings.debugMarkers = !!debugMarkersInput.checked;
       persistSettings(settings);
       emitDebugChange();

@@ -97,8 +97,7 @@ If you prefer to set up manually:
 
 ## Command Reference
 
-The Makefile now keeps things small by default:
-
+### Makefile targets
 - `make help` – essential day-to-day targets
 - `make help-extra` – everything else (tooling, Docker, releases)
 - `make help-all` – both sections in one run
@@ -106,11 +105,12 @@ The Makefile now keeps things small by default:
 Daily drivers:
 
 ```bash
+make setup   # Full setup (use SETUP_ARGS="--only-deps" or "--only-assets")
 make start   # Install deps + start dev server
 make dev     # Run Vite on $(HOST):$(PORT)
 make check   # Lint + typecheck + tests
 make build   # Production build artifacts
-make docker  # Launch docker-compose stack
+make docker  # Launch docker-compose stack (REBUILD=1, DETACH=1 for variants)
 ```
 
 Prefer npm scripts? They still work:
@@ -121,8 +121,6 @@ npm run dev        # Start dev server
 npm run build      # Build for production
 npm run preview    # Preview production build
 ```
-
-## Docker & GitHub Registry
 
 ## Docker & GitHub Registry
 
@@ -144,15 +142,14 @@ docker compose up
 # or with Make:
 make docker
 
-# Run in background
-docker compose up -d
-# or:
-make up
+# Need variations?
+make docker DETACH=1     # Run in background
+make docker REBUILD=1    # Force image rebuild before starting
 
 # Stop
 docker compose down
 # or:
-make down
+make docker-stop
 ```
 
 ### GitHub Container Registry (ghcr.io)
@@ -198,7 +195,7 @@ Check that all required 3D models and textures are present:
 
 ```bash
 # Using Make
-make assets
+make setup SETUP_ARGS="--only-assets"
 
 # Using the unified script
 ./scripts/setup.sh --only-assets        # Linux/macOS
@@ -214,7 +211,7 @@ Compress GLB/GLTF files with Draco and optimize textures to WebP:
 
 ```bash
 # Using Make
-make optimize
+make setup SETUP_ARGS="--only-optimize"
 
 # Using the unified script
 ./scripts/setup.sh --only-optimize      # Linux/macOS
@@ -235,7 +232,7 @@ docker compose up --build
 # Press Ctrl+C to stop the stack when finished
 docker compose down
 ```
-Make wrappers (`make docker`, `make docker-dev`, `make up`, `make down`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
+Make wrappers (`make docker`, `make docker-stop`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
 
 
 > **Can't run Docker?** No problem. Everything works with the local Node workflow (`npm ci`, `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a container for consistent environments. Only worry about Docker if your team uses it for deployment or you need parity with CI.

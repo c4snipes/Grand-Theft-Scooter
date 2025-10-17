@@ -65,20 +65,6 @@ async function startGame() {
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
     if (isSpawnSelectorActive()) return;
-  function applyCameraSensitivity(mode) {
-    const s = (mode === 'low') ? { rot: 0.6, zoom: 0.8, pan: 0.6 }
-      : (mode === 'high') ? { rot: 1.6, zoom: 1.4, pan: 1.6 }
-      : { rot: 1.0, zoom: 1.0, pan: 1.0 };
-    try {
-      if (orbitControls) {
-        orbitControls.rotateSpeed = s.rot;
-        orbitControls.zoomSpeed = s.zoom;
-        orbitControls.panSpeed = s.pan;
-        orbitControls.update();
-      }
-    } catch (_) {}
-  }
-
     const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
     if (cameraMode === 'orbit') {
       scoreboard.setMessage(
@@ -596,8 +582,18 @@ async function startGame() {
     try { disposeEnvironment?.(); } catch (_) {}
   };
 
-  // Hide loading overlay right before interactive scooter spawn
-  setLoadingVisible(false);
+  // Hide loading overlay only if mall is present; otherwise keep it and show a hint
+  const hasMall = !!scene.getObjectByName('shopping-mall');
+  if (hasMall) {
+    setLoadingVisible(false);
+  } else {
+    setLoadingVisible(true);
+    try {
+      const loadingEl = document.querySelector('[data-loading]');
+      if (loadingEl) loadingEl.textContent = 'Mall model not loaded yet… check assets/shopping_mall/scene.gltf';
+      console.warn('[startup] Mall model missing from scene; leaving loading overlay visible.');
+    } catch (_) {}
+  }
 
   await resetScooter({ interactive: true });
   updateRunTelemetry();
