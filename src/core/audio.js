@@ -305,6 +305,8 @@ export class AudioManager {
         // Ignore cleanup errors
       }
     });
+    // Remove all nodes from activeNodes in batch
+    nodes.forEach(node => this.activeNodes.delete(node));
   }
 
   // Clean up all active audio nodes
@@ -331,9 +333,6 @@ export class AudioManager {
     }
     if (this.engineOsc2) {
       try { this.engineOsc2.stop(); this.engineOsc2.disconnect(); } catch (_) {}
-    }
-    if (this.engineOsc3) {
-      try { this.engineOsc3.stop(); this.engineOsc3.disconnect(); } catch (_) {}
     }
 
     // Clean up all active nodes

@@ -145,7 +145,7 @@ export class ScoringSystem {
     this.score += finalPoints;
 
     // Play appropriate sounds
-    this.playScoringSounds(finalPoints, this.combo, targetLabel);
+    this.playScoringSounds(finalPoints, this.combo);
 
     // Trigger callbacks
     if (this.callbacks.onScoreUpdate) {
@@ -207,7 +207,7 @@ export class ScoringSystem {
   }
 
   // Play appropriate sounds for scoring
-  playScoringSounds(points, combo, targetLabel) {
+  playScoringSounds(points, combo) {
     // Play base score sound
     audioManager.playScoreSound(points);
 
@@ -219,7 +219,7 @@ export class ScoringSystem {
     // Special sound for high-value targets
     if (points > 1000) {
       // Play additional celebratory sound
-      setTimeout(() => {
+      this._scoreSoundTimeout = setTimeout(() => {
         audioManager.playScoreSound(points * 0.5);
       }, 200);
     }
@@ -270,12 +270,10 @@ export class ScoringSystem {
 
   // Clean up scoring system resources
   dispose() {
-    // Clear all callbacks to prevent memory leaks
-    this.callbacks = {
-      onScoreUpdate: null,
-      onComboUpdate: null,
-      onSpecialBonus: null
-    };
+    // Explicitly remove references from callbacks to prevent memory leaks
+    Object.keys(this.callbacks).forEach(key => {
+      this.callbacks[key] = undefined;
+    });
 
     // Reset all scoring data
     this.reset();

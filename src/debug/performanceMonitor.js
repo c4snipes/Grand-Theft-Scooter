@@ -53,26 +53,14 @@ export class PerformanceMonitor {
       Math.abs(expectedDamping.linear - actualDamping.linear) < 0.01;
 
     if (!isConsistent) {
-      this.physicsMetrics.memoryLeaks++;
+      this.physicsMetrics.physicsInconsistencies++;
       console.warn(`⚠️ Physics inconsistency detected for ${targetType}`);
     }
   }
 
   getExpectedDamping(targetType) {
-    // Expected damping values based on our standardized system
-    const dampingMap = {
-      'Mall Kiosk': { angular: 0.9, linear: 0.75 },
-      'Vending Machine': { angular: 0.9, linear: 0.75 },
-      ATM: { angular: 0.9, linear: 0.75 },
-      'Shopping Cart': { angular: 0.9, linear: 0.75 },
-      'Trash Can': { angular: 0.9, linear: 0.75 },
-      Bench: { angular: 0.7, linear: 0.5 },
-      'Poster Stand': { angular: 0.7, linear: 0.5 },
-      "Mall Patron": { angular: 0.8, linear: 0.6 },
-      "Security Guard": { angular: 0.8, linear: 0.6 },
-    };
-
-    return dampingMap[targetType] || { angular: 0.6, linear: 0.4 };
+    // Use imported DAMPING_MAP for standardized damping values
+    return DAMPING_MAP[targetType] || { angular: 0.6, linear: 0.4 };
   }
 
   generateReport() {
@@ -90,7 +78,7 @@ export class PerformanceMonitor {
       memoryGrowth: memoryGrowth,
       memoryLeakSuspected: memoryGrowth > 50, // More than 50MB growth is suspicious
       collisionCount: this.physicsMetrics.collisionCount,
-      physicsConsistency: this.physicsMetrics.memoryLeaks === 0,
+      physicsConsistency: this.physicsMetrics.physicsInconsistencies === 0,
       snapshots: this.memorySnapshots,
     };
 
