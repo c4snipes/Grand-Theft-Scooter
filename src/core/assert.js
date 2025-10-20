@@ -2,9 +2,9 @@ const WARNED_MESSAGES = new Set();
 
 function buildDetails(context) {
   if (!context) {
-    return '';
+    return "";
   }
-  if (typeof context === 'string') {
+  if (typeof context === "string") {
     return ` ${context}`;
   }
   try {
@@ -17,7 +17,7 @@ function buildDetails(context) {
 export function invariant(condition, message, context) {
   if (condition) return;
   const error = new Error(`${message}${buildDetails(context)}`);
-  error.name = 'InvariantViolation';
+  error.name = "InvariantViolation";
   throw error;
 }
 
@@ -30,7 +30,7 @@ export function warnOnce(key, message, context) {
   const identifier = key ?? message;
   if (WARNED_MESSAGES.has(identifier)) return;
   WARNED_MESSAGES.add(identifier);
-  if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+  if (typeof console !== "undefined" && typeof console.warn === "function") {
     if (context !== undefined) {
       console.warn(message, context);
     } else {

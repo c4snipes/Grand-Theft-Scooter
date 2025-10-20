@@ -12,8 +12,8 @@ export class PerformanceMonitor {
 
   startMonitoring() {
     this.isMonitoring = true;
-    this.takeMemorySnapshot('start');
-    console.log('🔍 Performance monitoring started');
+    this.takeMemorySnapshot("start");
+    console.log("🔍 Performance monitoring started");
   }
 
   takeMemorySnapshot(label) {
@@ -25,7 +25,7 @@ export class PerformanceMonitor {
           total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
           limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024),
         }
-      : { used: 'N/A', total: 'N/A', limit: 'N/A' };
+      : { used: "N/A", total: "N/A", limit: "N/A" };
 
     this.memorySnapshots.push({
       label,
@@ -33,7 +33,9 @@ export class PerformanceMonitor {
       memory,
     });
 
-    console.log(`📊 Memory [${label}]: ${memory.used}MB used / ${memory.total}MB total`);
+    console.log(
+      `📊 Memory [${label}]: ${memory.used}MB used / ${memory.total}MB total`
+    );
   }
 
   recordCollision(targetType, physicsResponse) {
