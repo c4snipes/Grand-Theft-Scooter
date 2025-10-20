@@ -488,10 +488,11 @@ export function spawnFlowerPot(position) {
   pot.add(flowers);
 
   pot.position.set(pos.x, 0, pos.z);
+  const { angularDamping, linearDamping } = getDampingValues(CollisionType.PROP);
   const body = new Body({
     mass: 2, shape: new CannonBox(new Vec3(radius, height / 2, radius)),
     position: new Vec3(pos.x, height / 2, pos.z),
-    angularDamping: 0.6, linearDamping: 0.5,
+    angularDamping, linearDamping,
   });
 
   register({
