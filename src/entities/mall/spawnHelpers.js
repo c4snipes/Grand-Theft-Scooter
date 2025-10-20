@@ -434,10 +434,11 @@ export function spawnShoppingCart(position) {
   cart.add(handle);
 
   cart.position.set(pos.x, 0, pos.z);
+  const damping = getDampingValues(CollisionType.METAL);
   const body = new Body({
     mass: 3, shape: new CannonBox(new Vec3(0.3, 0.5, 0.45)),
     position: new Vec3(pos.x, 0.5, pos.z),
-    angularDamping: 0.4, linearDamping: 0.3,
+    angularDamping: damping.angular, linearDamping: damping.linear,
   });
 
   register({
