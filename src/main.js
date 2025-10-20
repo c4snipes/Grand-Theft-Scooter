@@ -123,7 +123,7 @@ async function startGame() {
     setCameraMode,
     updateCamera,
     handleResize,
-    controls: orbitControls,
+    controls: environmentOrbitControls,
     setColorMode,
     setShadowsEnabled,
     dispose: disposeEnvironment,
@@ -584,229 +584,231 @@ async function startGame() {
     "]": () => mall.setChunking({ size: (mall.chunkSize ?? 48) + 8 }),
   };
 
-  function handleKeydown(event) {
+  async function handleKeydown(event) {
     const key = event.key;
     const handler = keyHandlers[key.toLowerCase()] || keyHandlers[key];
     if (!handler) return;
-  // Audio initialization state and function
-  let audioInitialized = false;
-  async function initializeAudio() {
-    // Placeholder: Implement actual audio setup here
-    // For now, just mark as initialized
-    audioInitialized = true;
-    // Example: await someAudioLibrary.init();
-  }
-
-  // Initialize audio on first user interaction
-  // Add event listeners for audio initialization and keydown handling
-  window.addEventListener("keydown", (event) => {
-    initAudioOnInteraction();
-    handleKeydown(event);
-  });
-
-  window.addEventListener("click", initAudioOnInteraction);
-  window.addEventListener("touchstart", initAudioOnInteraction);
-
-  // Add event listeners for audio initialization
-  window.addEventListener("keydown", (event) => {
-    initAudioOnInteraction();
-    handleKeydown(event);
-  });
-
-  window.addEventListener("click", initAudioOnInteraction);
-  window.addEventListener("touchstart", initAudioOnInteraction);
-
-  function triggerGameOver(reason) {
-    if (isGameOver) return;
-    isGameOver = true;
-    runStats.endTime = performance.now();
-    if (reason) {
-      runStats.hazards += 1;
+    // Audio initialization state and function
+    let audioInitialized = false;
+    async function initializeAudio() {
+      // Placeholder: Implement actual audio setup here
+      // For now, just mark as initialized
+      audioInitialized = true;
+      // Example: await someAudioLibrary.init();
     }
-    currentSpeed = 0;
-    scoreboard.updateTelemetry({
-      speed: 0,
-      hazards: runStats.hazards,
-      topSpeed: runStats.topSpeed,
-      hits: runStats.hits,
-      runtime: (runStats.endTime - runStats.startTime) / 1000,
-      status: "Downed",
+
+    // Initialize audio on first user interaction
+    // Add event listeners for audio initialization and keydown handling
+    window.addEventListener("keydown", (event) => {
+      initAudioOnInteraction();
+      handleKeydown(event);
     });
-    scoreboard.setMessage("Game over! Press Try Again to restart.", {
-      duration: 0,
+
+    window.addEventListener("click", initAudioOnInteraction);
+    window.addEventListener("touchstart", initAudioOnInteraction);
+
+    // Add event listeners for audio initialization
+    window.addEventListener("keydown", (event) => {
+      initAudioOnInteraction();
+      handleKeydown(event);
     });
-    gameOverOverlay.show(
-      reason ? `You crashed into ${reason}.` : "You crashed!"
-    );
-    scooter.body.velocity.set(0, 0, 0);
-    scooter.body.angularVelocity.set(0, 0, 0);
-  }
 
-  const onScooterCollide = (event) => {
-    const hit = mall.handleCollision(event.body, scooter.body);
-    if (!hit || isGameOver) return;
-    if (hit.kind === "fatal") {
-      triggerGameOver(hit.label);
-      return;
+    window.addEventListener("click", initAudioOnInteraction);
+    window.addEventListener("touchstart", initAudioOnInteraction);
+
+    function triggerGameOver(reason) {
+      if (isGameOver) return;
+      isGameOver = true;
+      runStats.endTime = performance.now();
+      if (reason) {
+        runStats.hazards += 1;
+      }
+      currentSpeed = 0;
+      scoreboard.updateTelemetry({
+        speed: 0,
+        hazards: runStats.hazards,
+        topSpeed: runStats.topSpeed,
+        hits: runStats.hits,
+        runtime: (runStats.endTime - runStats.startTime) / 1000,
+        status: "Downed",
+      });
+      scoreboard.setMessage("Game over! Press Try Again to restart.", {
+        duration: 0,
+      });
+      gameOverOverlay.show(
+        reason ? `You crashed into ${reason}.` : "You crashed!"
+      );
+      scooter.body.velocity.set(0, 0, 0);
+      scooter.body.angularVelocity.set(0, 0, 0);
     }
-    if (hit.kind === "score") {
-      runStats.hits += 1;
-      scoreboard.award(hit.points, hit.label);
-      scoreboard.updateTelemetry({ hits: runStats.hits });
-    }
-  };
-  scooter.body.addEventListener("collide", onScooterCollide);
 
-  function updatePhysics(delta, input) {
-    if (cameraMode === "follow") {
-      const drive = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
-      const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    const onScooterCollide = (event) => {
+      const hit = mall.handleCollision(event.body, scooter.body);
+      if (!hit || isGameOver) return;
+      if (hit.kind === "fatal") {
+        triggerGameOver(hit.label);
+        return;
+      }
+      if (hit.kind === "score") {
+        runStats.hits += 1;
+        scoreboard.award(hit.points, hit.label);
+        scoreboard.updateTelemetry({ hits: runStats.hits });
+      }
+    };
+    scooter.body.addEventListener("collide", onScooterCollide);
 
-      if (scooter && typeof scooter.setControlsState === "function") {
-        scooter.setControlsState({ drive, steer });
+    function updatePhysics(delta, input) {
+      if (cameraMode === "follow") {
+        const drive = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+        const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+
+        if (scooter && typeof scooter.setControlsState === "function") {
+          scooter.setControlsState({ drive, steer });
+        }
+
+        applyDriveForce(drive);
+        applySteering(steer, delta);
       }
 
-      applyDriveForce(drive);
-      applySteering(steer, delta);
+      stepPhysics(world, delta);
+      currentSpeed = scooter.body.velocity.length();
+      if (currentSpeed > runStats.topSpeed) {
+        runStats.topSpeed = currentSpeed;
+      }
     }
 
-    stepPhysics(world, delta);
-    currentSpeed = scooter.body.velocity.length();
-    if (currentSpeed > runStats.topSpeed) {
-      runStats.topSpeed = currentSpeed;
-    }
-  }
+    function syncGraphics(delta) {
+      scooter.sync(delta);
+      // Let mall know where the player is for chunk streaming
+      if (typeof mall.setPlayerLocator === "function") {
+        mall.setPlayerLocator(() => ({
+          x: scooter.body.position.x,
+          z: scooter.body.position.z,
+        }));
+      }
+      mall.sync(delta);
+      updateCamera(scooter.mesh);
 
-  function syncGraphics(delta) {
-    scooter.sync(delta);
-    // Let mall know where the player is for chunk streaming
-    if (typeof mall.setPlayerLocator === "function") {
-      mall.setPlayerLocator(() => ({
-        x: scooter.body.position.x,
-        z: scooter.body.position.z,
-      }));
-    }
-    mall.sync(delta);
-    updateCamera(scooter.mesh);
+      // Kick off lazy NPC pack loading once to improve startup and upgrade future spawns
+      if (!assets.npcPacksReady && !npcPacksLoading) {
+        npcPacksLoading = true;
+        loadNpcPacks()
+          .then(({ animatedMenVariants, animatedWomenVariants }) => {
+            assets.animatedMenVariants = animatedMenVariants;
+            assets.animatedWomenVariants = animatedWomenVariants;
+            assets.npcPacksReady = true;
+            if (scoreboard) {
+              scoreboard.setMessage(
+                "Character packs loaded. Upgrading the mall crowd…",
+                { duration: 4200 }
+              );
+            }
+            if (mall && typeof mall.addPatrons === "function") {
+              // Add a fresh batch of higher-fidelity NPCs now that packs are ready
+              mall.addPatrons(14);
+            }
+          })
+          .catch((err) =>
+            console.warn("[assets] Failed to load NPC packs:", err)
+          )
+          .finally(() => {
+            npcPacksLoading = false;
+          });
+      }
 
-    // Kick off lazy NPC pack loading once to improve startup and upgrade future spawns
-    if (!assets.npcPacksReady && !npcPacksLoading) {
-      npcPacksLoading = true;
-      loadNpcPacks()
-        .then(({ animatedMenVariants, animatedWomenVariants }) => {
-          assets.animatedMenVariants = animatedMenVariants;
-          assets.animatedWomenVariants = animatedWomenVariants;
-          assets.npcPacksReady = true;
-          if (scoreboard) {
-            scoreboard.setMessage(
-              "Character packs loaded. Upgrading the mall crowd…",
-              { duration: 4200 }
-            );
-          }
-          if (mall && typeof mall.addPatrons === "function") {
-            // Add a fresh batch of higher-fidelity NPCs now that packs are ready
-            mall.addPatrons(14);
-          }
-        })
-        .catch((err) => console.warn("[assets] Failed to load NPC packs:", err))
-        .finally(() => {
-          npcPacksLoading = false;
-        });
+      renderer.render(scene, camera);
     }
 
-    renderer.render(scene, camera);
-  }
-
-  // Centralized teardown to ensure listeners and DOM are cleaned up before restart
-  disposeAll = () => {
-    try {
-      window.removeEventListener("keydown", handleKeydown);
-    } catch (_) {}
-    try {
-      window.removeEventListener("resize", handleResize);
-    } catch (_) {}
-    if (resetButton && handleResetButtonClick) {
+    // Centralized teardown to ensure listeners and DOM are cleaned up before restart
+    disposeAll = () => {
       try {
-        resetButton.removeEventListener("click", handleResetButtonClick);
+        window.removeEventListener("keydown", handleKeydown);
+      } catch (_) {}
+      try {
+        window.removeEventListener("resize", handleResize);
+      } catch (_) {}
+      if (resetButton && handleResetButtonClick) {
+        try {
+          resetButton.removeEventListener("click", handleResetButtonClick);
+        } catch (_) {}
+      }
+      if (spawnPreviewFrameId !== null) {
+        try {
+          cancelAnimationFrame(spawnPreviewFrameId);
+        } catch (_) {}
+        spawnPreviewFrameId = null;
+      }
+      try {
+        scooter.body.removeEventListener("collide", onScooterCollide);
+      } catch (_) {}
+      try {
+        spawnSelector?.dispose?.();
+      } catch (_) {}
+      try {
+        controls?.dispose?.();
+      } catch (_) {}
+      try {
+        scoreboard?.dispose?.();
+      } catch (_) {}
+      try {
+        gameOverOverlay?.dispose?.();
+      } catch (_) {}
+      try {
+        orbitControls?.dispose?.();
+      } catch (_) {}
+      try {
+        disposeEnvironment?.();
+      } catch (_) {}
+    };
+
+    // Hide loading overlay only if mall is present; otherwise keep it and show a hint
+    const hasMall = !!scene.getObjectByName("shopping-mall");
+    if (hasMall) {
+      setLoadingVisible(false);
+    } else {
+      setLoadingVisible(true);
+      try {
+        const loadingEl = document.querySelector("[data-loading]");
+        if (loadingEl)
+          loadingEl.textContent =
+            "Mall model not loaded yet… check assets/shopping_mall/scene.gltf";
+        console.warn(
+          "[startup] Mall model missing from scene; leaving loading overlay visible."
+        );
       } catch (_) {}
     }
-    if (spawnPreviewFrameId !== null) {
-      try {
-        cancelAnimationFrame(spawnPreviewFrameId);
-      } catch (_) {}
-      spawnPreviewFrameId = null;
-    }
-    try {
-      scooter.body.removeEventListener("collide", onScooterCollide);
-    } catch (_) {}
-    try {
-      spawnSelector?.dispose?.();
-    } catch (_) {}
-    try {
-      controls?.dispose?.();
-    } catch (_) {}
-    try {
-      scoreboard?.dispose?.();
-    } catch (_) {}
-    try {
-      gameOverOverlay?.dispose?.();
-    } catch (_) {}
-    try {
-      orbitControls?.dispose?.();
-    } catch (_) {}
-    try {
-      disposeEnvironment?.();
-    } catch (_) {}
-  };
 
-  // Hide loading overlay only if mall is present; otherwise keep it and show a hint
-  const hasMall = !!scene.getObjectByName("shopping-mall");
-  if (hasMall) {
-    setLoadingVisible(false);
-  } else {
-    setLoadingVisible(true);
-    try {
-      const loadingEl = document.querySelector("[data-loading]");
-      if (loadingEl)
-        loadingEl.textContent =
-          "Mall model not loaded yet… check assets/shopping_mall/scene.gltf";
-      console.warn(
-        "[startup] Mall model missing from scene; leaving loading overlay visible."
-      );
-    } catch (_) {}
+    await resetScooter({ interactive: true });
+    updateRunTelemetry();
+    setTimeout(() => {
+      if (!isGameOver) {
+        refreshCameraMessage();
+      }
+    }, 6500);
+
+    window.addEventListener("resize", handleResize);
+    // Hand off to centralized loop controller
+    createGameLoop({
+      clock,
+      readInput: () => controls.read(),
+      updatePhysics: (delta, input) => updatePhysics(delta, input),
+      updateRunTelemetry,
+      syncGraphics,
+      renderer,
+      camera,
+      orbitControls,
+      isFreeCameraActive: () =>
+        cameraMode === "orbit" && !isSpawnSelectorActive(),
+      alignHorizontalAxis,
+    }).start();
   }
 
-  await resetScooter({ interactive: true });
-  updateRunTelemetry();
-  setTimeout(() => {
-    if (!isGameOver) {
-      refreshCameraMessage();
+  (async () => {
+    try {
+      await startGame();
+    } catch (error) {
+      console.error("[Grand Theft Scooter] Failed to start game loop:", error);
     }
-  }, 6500);
-
-  window.addEventListener("resize", handleResize);
-  // Hand off to centralized loop controller
-  createGameLoop({
-    clock,
-    readInput: () => controls.read(),
-    updatePhysics: (delta, input) => updatePhysics(delta, input),
-    updateRunTelemetry,
-    syncGraphics,
-    renderer,
-    camera,
-    orbitControls,
-    isFreeCameraActive: () =>
-      cameraMode === "orbit" && !isSpawnSelectorActive(),
-    alignHorizontalAxis,
-  }).start();
+  })();
 }
-
-(async () => {
-  try {
-    await startGame();
-  } catch (error) {
-    console.error("[Grand Theft Scooter] Failed to start game loop:", error);
-  }
-})();
-
 // end
