@@ -107,7 +107,7 @@ export class ScoringSystem {
     let finalPoints = Math.floor(basePoints * speedBonus * comboMultiplier);
 
     // Bonus for hitting same type consecutively (reduced from 30% to 20%)
-    if (this.lastHitType === targetLabel && this.consecutiveHits >= 2) {
+    if (this.lastHitType === targetLabel && this.consecutiveHits >= 1) {
       finalPoints = Math.floor(finalPoints * 1.2); // 20% bonus for consecutive same-type hits
     }
 
