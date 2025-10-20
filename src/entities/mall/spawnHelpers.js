@@ -460,10 +460,11 @@ export function spawnATM(position) {
   atm.add(screen);
 
   atm.position.set(pos.x, 0, pos.z);
+  const { angularDamping, linearDamping } = getDampingValues(CollisionType.METAL);
   const physicsBody = new Body({
     mass: 25, shape: new CannonBox(new Vec3(w / 2, h / 2, d / 2)),
     position: new Vec3(pos.x, h / 2, pos.z),
-    angularDamping: 0.95, linearDamping: 0.9,
+    angularDamping, linearDamping,
   });
 
   register({
