@@ -7,6 +7,7 @@ import {
   spawnPlanter, spawnBench, spawnKiosk, spawnTrashCan,
   spawnPosterStand, spawnBoxStack, spawnSecurityGate, spawnCleaningRobot,
   spawnMaintenanceBarrier, spawnMallBoundaries, spawnMallPatron,
+  spawnVendingMachine, spawnShoppingCart, spawnATM, spawnFlowerPot,
   initSpawnContext
 } from './mall/spawnHelpers';
 import { initChunking, getChunkKeyForPosition, updateChunkStreaming, chunksApi, InteractableType } from './mall/streaming';
@@ -54,7 +55,9 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       mixer,
       chunkKey: null,
     };
-    body.userData = record;
+    // Use dedicated collision property to avoid userData namespace conflicts
+    body.userData = body.userData || {};
+    body.userData.collisionRecord = record;
     if (materials) {
       if (body.mass === 0 && materials.ground) {
         body.material = materials.ground;
@@ -182,6 +185,11 @@ export function createMall(world, scene, assets = {}, materials = {}) {
     { key: 'poster', min: 8, max: 12, distance: 4.5, spawn: (p) => spawnPosterStand(p) },
     { key: 'boxstack', min: 10, max: 16, distance: 3.8, spawn: (p) => spawnBoxStack(p) },
     { key: 'patron', min: 6, max: 10, distance: 5, spawn: (p) => spawnMallPatron(p) },
+    // New enhanced targets
+    { key: 'vending', min: 4, max: 8, distance: 5, spawn: (p) => spawnVendingMachine(p) },
+    { key: 'cart', min: 8, max: 14, distance: 4, spawn: (p) => spawnShoppingCart(p) },
+    { key: 'atm', min: 2, max: 4, distance: 6, spawn: (p) => spawnATM(p) },
+    { key: 'flowerpot', min: 12, max: 18, distance: 3.5, spawn: (p) => spawnFlowerPot(p) },
   ];
   const hazardSpawners = [spawnSecurityGate, spawnCleaningRobot, spawnMaintenanceBarrier];
 
@@ -235,7 +243,10 @@ export function createMall(world, scene, assets = {}, materials = {}) {
         scene.remove(record.mesh);
       }
     }
-    record.body.userData = undefined;
+    // Clear collision record while preserving other userData
+    if (record.body.userData) {
+      record.body.userData.collisionRecord = undefined;
+    }
 
     const index = interactables.indexOf(record);
     if (index !== -1) {
@@ -376,7 +387,7 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       }
     },
     handleCollision(body, hitterBody) {
-      const record = body?.userData;
+      const record = body?.userData?.collisionRecord;
       if (!record) return null;
       if (typeof record !== 'object') {
         warnOnce(

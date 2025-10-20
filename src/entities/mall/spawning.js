@@ -71,55 +71,11 @@ function cleanupRecord({ scene, world, record, interactables, dynamicActors }) {
   }
 }
 
+// REMOVED: Unused mallSpawning export - functionality moved to mall.js
+// export const mallSpawning = {
+  // REMOVED: Duplicate registerInteractable function
+
 export const mallSpawning = {
-  registerInteractable({
-    opts,
-    scene, world, materials,
-    interactables, dynamicActors,
-    chunking,
-  }) {
-    const {
-      mesh, body, label, points = 0, type,
-      respawn, onUpdate, fatal = false, mixer = null, chunkKey = null,
-    } = opts;
-
-    const record = {
-      mesh,
-      body,
-      label,
-      points,
-      type,
-      respawn: respawn ?? null,
-      hit: false,
-      onUpdate: onUpdate ?? null,
-      fatal,
-      mixer,
-      chunkKey: null,
-    };
-
-    body.userData = record;
-    if (materials) {
-      if (body.mass === 0 && materials.ground) {
-        body.material = materials.ground;
-      } else if (body.mass > 0 && materials.dynamic) {
-        body.material = materials.dynamic;
-      }
-    }
-
-    interactables.push(record);
-    if (record.onUpdate) dynamicActors.push(record);
-
-    if (chunking?.chunkedStreamingEnabled?.()) {
-      const key = chunkKey ?? `${Math.floor(body.position.x / 48)},${Math.floor(body.position.z / 48)}`;
-      record.chunkKey = key;
-      mountRecordToScene({ record, scene, chunkKey: key, ensureChunk: chunking.ensureChunk });
-    } else {
-      scene.add(mesh);
-    }
-    world.addBody(body);
-    return record;
-  },
-
   createHitHandlers({ scene, world, interactables, dynamicActors }) {
     function queueCleanup(record, delay = 0) {
       if (delay <= 0) {

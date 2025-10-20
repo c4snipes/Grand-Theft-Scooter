@@ -288,17 +288,22 @@ export function createScooter(world, material, assets = {}) {
   );
   invariant(assets && typeof assets === 'object', 'createScooter expects an assets object.');
 
+  // Enhanced physics body with better stability
   const body = new Body({
-    mass: 25,
+    mass: 35, // Increased mass for better stability
     shape: new CannonBox(new Vec3(
       SCOOTER_DIMENSIONS.width / 2,
       SCOOTER_DIMENSIONS.height / 2,
       SCOOTER_DIMENSIONS.length / 2,
     )),
-    position: new Vec3(0, SCOOTER_DIMENSIONS.height / 2 + 0.05, 0),
-    angularDamping: 0.5,
-    linearDamping: 0.3,
+    position: new Vec3(0, SCOOTER_DIMENSIONS.height / 2 + 0.1, 0), // Slightly higher spawn
+    angularDamping: 0.7, // Increased angular damping for better control
+    linearDamping: 0.15, // Reduced linear damping for more responsive movement
   });
+
+  // Enhanced inertia for more realistic physics
+  body.updateMassProperties();
+
   if (material) {
     body.material = material;
   }

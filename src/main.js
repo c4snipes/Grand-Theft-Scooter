@@ -14,6 +14,21 @@ import { assertDefined, invariant } from './core/assert';
 import { createSpawnSelector } from './systems/spawnSelector';
 import { createGameLoop } from './systems/gameLoop';
 import { createDebugMarkers } from './debug/markers';
+import { audioManager } from './core/audio';
+import { scoringSystem } from './systems/scoring';
+import { getCollisionType } from './constants/collisionTypes';
+import { performanceMonitor } from './debug/performanceMonitor';
+
+// UI Message Templates
+const UI_MESSAGES = {
+  CAMERA_FOLLOW: (controlScheme) => {
+    const schemeLabel = controlScheme === 'arrows' ? 'the arrow keys' : 'WASD';
+    return `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`;
+  },
+  CAMERA_FREE: 'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
+  GAME_READY: 'Ready to roll! Hit the gas and see how much chaos you can cause.',
+  SPAWN_SELECT: 'Click to choose spawn location, or press Enter to confirm current position.',
+};
 
 function updateHudHints(layout) {
   const accelerateEl = document.querySelector('[data-hint-accelerate]');
@@ -65,18 +80,29 @@ async function startGame() {
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
     if (isSpawnSelectorActive()) return;
-    const schemeLabel = activeLayout === 'arrows' ? 'the arrow keys' : 'WASD';
-    if (cameraMode === 'orbit') {
-      scoreboard.setMessage(
-        'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
-        { duration: 4200 },
-      );
-    } else {
-      scoreboard.setMessage(
-        `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`,
-        { duration: 4200 },
-      );
-    }
+
+    const message = cameraMode === 'orbit'
+      ? UI_MESSAGES.CAMERA_FREE
+      : UI_MESSAGES.CAMERA_FOLLOW(activeLayout);
+
+    scoreboard.setMessage(message, { duration: 4200 });
+  }
+
+  // Camera sensitivity function (defined early so it's available for settings manager)
+  let orbitControls = null; // Will be set after environment creation
+  function applyCameraSensitivity(mode) {
+    if (!orbitControls) return;
+
+    const sensitivityMap = {
+      low: { rotate: 0.3, zoom: 0.5, pan: 0.5 },
+      normal: { rotate: 0.5, zoom: 1.0, pan: 1.0 },
+      high: { rotate: 0.8, zoom: 1.5, pan: 1.5 }
+    };
+
+    const settings = sensitivityMap[mode] || sensitivityMap.normal;
+    orbitControls.rotateSpeed = settings.rotate;
+    orbitControls.zoomSpeed = settings.zoom;
+    orbitControls.panSpeed = settings.pan;
   }
 
   const settings = createSettingsManager({
@@ -117,16 +143,23 @@ async function startGame() {
     setCameraMode,
     updateCamera,
     handleResize,
-    controls: orbitControls,
+    controls: environmentOrbitControls,
     setColorMode,
     setShadowsEnabled,
     dispose: disposeEnvironment,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
+
+  // Set the orbit controls for camera sensitivity
+  orbitControls = environmentOrbitControls;
   invariant(renderer && typeof renderer.render === 'function', 'createEnvironment must supply a renderer with render().');
   invariant(scene && typeof scene.add === 'function', 'createEnvironment must supply a valid scene.');
   invariant(camera && typeof camera.isCamera === 'boolean', 'createEnvironment must supply a THREE camera.');
   // Apply camera sensitivity based on user setting
-  try { applyCameraSensitivity(settings.getCameraSensitivity?.() || 'normal'); } catch (_) {}
+  try {
+    applyCameraSensitivity(settings.getCameraSensitivity?.() || 'normal');
+  } catch (error) {
+    console.warn('[Camera] Failed to apply camera sensitivity:', error);
+  }
 
   invariant(typeof setCameraMode === 'function', 'createEnvironment must supply setCameraMode().');
   invariant(typeof updateCamera === 'function', 'createEnvironment must supply updateCamera().');
@@ -150,9 +183,7 @@ async function startGame() {
       debug.setEnabled(window.DEBUG_SPAWN);
       console.info('[debug] markers', window.DEBUG_SPAWN ? 'enabled' : 'disabled');
     };
-    window.addEventListener('keydown', (ev) => {
-      if (ev.key === 'F9') { ev.preventDefault?.(); window.toggleDebugMarkers(); }
-    });
+    // Debug keydown handler will be consolidated with main handler below
   } catch (_) {}
 
   // Determine mall floor height under a given (x,z) so we can spawn above it
@@ -269,13 +300,33 @@ async function startGame() {
     if (drive === 0) return;
     forwardVector.set(0, 0, -1);
     scooter.body.quaternion.vmult(forwardVector, forwardVector);
-    tmpForce.copy(forwardVector).scale(75 * drive);
+
+    // Enhanced drive force with speed-dependent scaling
+    const currentSpeed = scooter.body.velocity.length();
+    const speedFactor = Math.max(0.3, 1 - (currentSpeed / 30)); // Reduce force at high speeds
+    const driveForce = 90 * drive * speedFactor; // Increased base force
+
+    tmpForce.copy(forwardVector).scale(driveForce);
     scooter.body.applyForce(tmpForce, scooter.body.position);
   }
 
   function applySteering(steer, delta) {
     if (steer === 0) return;
-    scooter.body.angularVelocity.y -= steer * delta * 5;
+
+    // Enhanced steering with speed-dependent responsiveness
+    const currentSpeed = scooter.body.velocity.length();
+    const speedFactor = Math.min(1.5, Math.max(0.5, currentSpeed / 10)); // More responsive at speed
+    const steerForce = steer * delta * 6.5 * speedFactor; // Increased base steering
+
+    scooter.body.angularVelocity.y -= steerForce;
+
+    // Add slight lateral force for more realistic turning
+    if (currentSpeed > 2) {
+      const rightVector = new Vec3();
+      scooter.body.quaternion.vmult(new Vec3(1, 0, 0), rightVector);
+      const lateralForce = rightVector.scale(steer * currentSpeed * 8);
+      scooter.body.applyForce(lateralForce, scooter.body.position);
+    }
   }
 
   const runStats = {
@@ -285,6 +336,31 @@ async function startGame() {
     startTime: performance.now(),
     endTime: null,
   };
+
+  // Initialize audio system
+  let audioInitialized = false;
+  async function initializeAudio() {
+    if (!audioInitialized) {
+      await audioManager.initialize();
+      audioInitialized = true;
+
+      // Setup scoring system callbacks
+      scoringSystem.setCallbacks({
+        onScoreUpdate: (score, points, breakdown) => {
+          scoreboard.updateTelemetry({ score });
+          scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, { duration: 1500 });
+        },
+        onComboUpdate: (combo, increased) => {
+          if (increased && combo >= 3) {
+            scoreboard.setMessage(`${combo}x COMBO!`, { duration: 1200 });
+          }
+        },
+        onSpecialBonus: (message, bonus) => {
+          scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
+        }
+      });
+    }
+  }
   let currentSpeed = 0;
   let npcPacksLoading = false;
 
@@ -462,6 +538,10 @@ async function startGame() {
     '-': () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) - 1 }),
     '[': () => mall.setChunking({ size: (mall.chunkSize ?? 48) - 8 }),
     ']': () => mall.setChunking({ size: (mall.chunkSize ?? 48) + 8 }),
+    'F9': (event) => {
+      event.preventDefault?.();
+      try { window.toggleDebugMarkers?.(); } catch (_) {}
+    },
   };
 
   function handleKeydown(event) {
@@ -471,7 +551,21 @@ async function startGame() {
     handler(event);
   }
 
-  window.addEventListener('keydown', handleKeydown);
+  // Initialize audio on first user interaction
+  function initAudioOnInteraction() {
+    if (!audioInitialized) {
+      initializeAudio().catch(console.warn);
+    }
+  }
+
+  // Add event listeners for audio initialization
+  window.addEventListener('keydown', (event) => {
+    initAudioOnInteraction();
+    handleKeydown(event);
+  });
+
+  window.addEventListener('click', initAudioOnInteraction);
+  window.addEventListener('touchstart', initAudioOnInteraction);
 
   function triggerGameOver(reason) {
     if (isGameOver) return;
@@ -498,14 +592,37 @@ async function startGame() {
   const onScooterCollide = (event) => {
     const hit = mall.handleCollision(event.body, scooter.body);
     if (!hit || isGameOver) return;
+
     if (hit.kind === 'fatal') {
+      // Play crash sound
+      audioManager.playCollisionSound(1.0, 'metal');
       triggerGameOver(hit.label);
       return;
     }
+
     if (hit.kind === 'score') {
       runStats.hits += 1;
-      scoreboard.award(hit.points, hit.label);
-      scoreboard.updateTelemetry({ hits: runStats.hits });
+
+      // Use enhanced scoring system
+      const currentSpeed = scooter.body.velocity.length();
+      const scoreResult = scoringSystem.awardPoints(hit.label, currentSpeed);
+
+      // Play collision sound based on target type (optimized with type flags)
+      const soundType = getCollisionType(hit.label);
+      const intensity = Math.min(1.0, currentSpeed / 15);
+      audioManager.playCollisionSound(intensity, soundType);
+
+      // Monitor performance improvements
+      performanceMonitor.recordCollision(hit.label, {
+        angularDamping: hit.body?.angularDamping || 0,
+        linearDamping: hit.body?.linearDamping || 0
+      });
+
+      // Update scoreboard with new scoring system
+      scoreboard.updateTelemetry({
+        hits: runStats.hits,
+        score: scoringSystem.getStats().score
+      });
     }
   };
   scooter.body.addEventListener('collide', onScooterCollide);
@@ -521,6 +638,12 @@ async function startGame() {
 
       applyDriveForce(drive);
       applySteering(steer, delta);
+
+      // Update engine sound based on throttle and speed
+      if (audioInitialized) {
+        const throttle = Math.abs(drive);
+        audioManager.updateEngineSound(currentSpeed, throttle);
+      }
     }
 
     stepPhysics(world, delta);
@@ -528,6 +651,9 @@ async function startGame() {
     if (currentSpeed > runStats.topSpeed) {
       runStats.topSpeed = currentSpeed;
     }
+
+    // Update scoring system combo timer
+    scoringSystem.updateCombo(performance.now());
   }
 
   function syncGraphics(delta) {
@@ -579,6 +705,8 @@ async function startGame() {
     try { scoreboard?.dispose?.(); } catch (_) {}
     try { gameOverOverlay?.dispose?.(); } catch (_) {}
     try { orbitControls?.dispose?.(); } catch (_) {}
+    try { audioManager?.dispose?.(); } catch (_) {} // Clean up audio system
+    try { scoringSystem?.dispose?.(); } catch (_) {} // Clean up scoring system
     try { disposeEnvironment?.(); } catch (_) {}
   };
 

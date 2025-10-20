@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getChunkKeyForPosition, InteractableType } from './streaming';
+import { getDampingValues, CollisionType } from '../../constants/collisionTypes';
 
 export const propMaterials = {
   kioskPrimary: new MeshStandardMaterial({ color: '#3e7cb1', roughness: 0.55, metalness: 0.1 }),
@@ -390,6 +391,112 @@ export function spawnMallBoundaries(scene, world, materials, mallBounds, getChun
     position: new Vec3(0, ceilingHeight, 0),
   });
   registerInteractable({ mesh: ceiling, body: ceilingBody, label: 'Mall Ceiling', type: InteractableType.HAZARD, fatal: true, chunkKey: getChunkKeyForPosition(0, 0) });
+}
+
+// New target types for enhanced gameplay
+export function spawnVendingMachine(position) {
+  const pos = position ?? CTX.findSpawnPosition(4);
+  const machine = new Group(); machine.name = 'vending-machine';
+  const w = 0.8, h = 1.8, d = 0.6;
+
+  const body = new Mesh(new BoxGeometry(w, h, d), propMaterials.kioskPrimary);
+  body.position.y = h / 2;
+  machine.add(body);
+
+  const screen = new Mesh(new BoxGeometry(w * 0.8, h * 0.4, d * 0.05), propMaterials.kioskAccent);
+  screen.position.set(0, h * 0.6, d * 0.5);
+  machine.add(screen);
+
+  machine.position.set(pos.x, 0, pos.z);
+  const damping = getDampingValues(CollisionType.METAL);
+  const physicsBody = new Body({
+    mass: 15, shape: new CannonBox(new Vec3(w / 2, h / 2, d / 2)),
+    position: new Vec3(pos.x, h / 2, pos.z),
+    angularDamping: damping.angular, linearDamping: damping.linear,
+  });
+
+  register({
+    mesh: machine, body: physicsBody, label: 'Vending Machine', points: 90, type: InteractableType.PROP,
+    respawn: spawnVendingMachine, chunkKey: CTX.getChunkKeyForPosition(pos.x, pos.z),
+  });
+}
+
+export function spawnShoppingCart(position) {
+  const pos = position ?? CTX.findSpawnPosition(3);
+  const cart = new Group(); cart.name = 'shopping-cart';
+
+  const basket = new Mesh(new BoxGeometry(0.6, 0.4, 0.9), propMaterials.cartPrimary);
+  basket.position.y = 0.5;
+  cart.add(basket);
+
+  const handle = new Mesh(new BoxGeometry(0.05, 0.8, 0.05), propMaterials.benchFrame);
+  handle.position.set(0, 0.8, -0.4);
+  cart.add(handle);
+
+  cart.position.set(pos.x, 0, pos.z);
+  const body = new Body({
+    mass: 3, shape: new CannonBox(new Vec3(0.3, 0.5, 0.45)),
+    position: new Vec3(pos.x, 0.5, pos.z),
+    angularDamping: 0.4, linearDamping: 0.3,
+  });
+
+  register({
+    mesh: cart, body, label: 'Shopping Cart', points: 45, type: InteractableType.PROP,
+    respawn: spawnShoppingCart, chunkKey: CTX.getChunkKeyForPosition(pos.x, pos.z),
+  });
+}
+
+export function spawnATM(position) {
+  const pos = position ?? CTX.findSpawnPosition(5);
+  const atm = new Group(); atm.name = 'atm';
+  const w = 0.7, h = 1.4, d = 0.4;
+
+  const body = new Mesh(new BoxGeometry(w, h, d), new MeshStandardMaterial({ color: '#2c3e50', metalness: 0.8, roughness: 0.2 }));
+  body.position.y = h / 2;
+  atm.add(body);
+
+  const screen = new Mesh(new BoxGeometry(w * 0.6, h * 0.3, d * 0.05), new MeshStandardMaterial({ color: '#3498db', emissive: '#2980b9', emissiveIntensity: 0.3 }));
+  screen.position.set(0, h * 0.7, d * 0.5);
+  atm.add(screen);
+
+  atm.position.set(pos.x, 0, pos.z);
+  const physicsBody = new Body({
+    mass: 25, shape: new CannonBox(new Vec3(w / 2, h / 2, d / 2)),
+    position: new Vec3(pos.x, h / 2, pos.z),
+    angularDamping: 0.95, linearDamping: 0.9,
+  });
+
+  register({
+    mesh: atm, body: physicsBody, label: 'ATM', points: 150, type: InteractableType.PROP,
+    respawn: spawnATM, chunkKey: CTX.getChunkKeyForPosition(pos.x, pos.z),
+  });
+}
+
+export function spawnFlowerPot(position) {
+  const pos = position ?? CTX.findSpawnPosition(3);
+  const pot = new Group(); pot.name = 'flower-pot';
+  const radius = randomRange(0.3, 0.5);
+  const height = randomRange(0.4, 0.7);
+
+  const base = new Mesh(new CylinderGeometry(radius, radius * 1.2, height, 16), propMaterials.planter);
+  base.position.y = height / 2;
+  pot.add(base);
+
+  const flowers = new Mesh(new SphereGeometry(radius * 0.8, 12, 8), new MeshStandardMaterial({ color: choose(['#e74c3c', '#f39c12', '#9b59b6', '#e67e22']) }));
+  flowers.position.y = height + radius * 0.4;
+  pot.add(flowers);
+
+  pot.position.set(pos.x, 0, pos.z);
+  const body = new Body({
+    mass: 2, shape: new CannonBox(new Vec3(radius, height / 2, radius)),
+    position: new Vec3(pos.x, height / 2, pos.z),
+    angularDamping: 0.6, linearDamping: 0.5,
+  });
+
+  register({
+    mesh: pot, body, label: 'Flower Pot', points: 35, type: InteractableType.PROP,
+    respawn: spawnFlowerPot, chunkKey: CTX.getChunkKeyForPosition(pos.x, pos.z),
+  });
 }
 
 export function spawnMallPatron(positionOverride) {

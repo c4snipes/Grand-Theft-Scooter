@@ -106,6 +106,7 @@ export function createScoreboard() {
 
   const nodes = {
     score: createMetric(metricsList, 'Score', '0'),
+    combo: createMetric(metricsList, 'Combo', '0x'),
     speed: createMetric(metricsList, 'Speed', '0.0 km/h'),
     topSpeed: createMetric(metricsList, 'Top speed', '0.0 km/h'),
     targets: createMetric(metricsList, 'Targets hit', '0'),
@@ -116,6 +117,7 @@ export function createScoreboard() {
 
   const totals = {
     score: 0,
+    combo: 0,
     speed: 0,
     topSpeed: 0,
     targets: 0,
