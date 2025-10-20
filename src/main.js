@@ -183,7 +183,6 @@ async function startGame() {
       debug.setEnabled(window.DEBUG_SPAWN);
       console.info('[debug] markers', window.DEBUG_SPAWN ? 'enabled' : 'disabled');
     };
-    // Debug keydown handler will be consolidated with main handler below
   } catch (_) {}
 
   // Determine mall floor height under a given (x,z) so we can spawn above it
