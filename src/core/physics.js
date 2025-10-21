@@ -9,11 +9,19 @@ import {
 } from "cannon-es";
 
 // --> Core Physics: constructs the physics world and exposes a fixed-step integrator.
+
+/**
+ * Creates and configures a Cannon.js physics world with optimized settings
+ * @returns {Object} Object containing the physics world and material definitions
+ * @returns {World} returns.world - The configured Cannon.js physics world
+ * @returns {Object} returns.materials - Material definitions for different object types
+ */
 export function createPhysicsWorld() {
   const world = new World({ gravity: new Vec3(0, -9.82, 0) });
   world.allowSleep = true; // Let inactive bodies sleep to save CPU
   world.broadphase = new SAPBroadphase(world);
-  // Slightly relax solver for performance; leave stability to contact params
+
+  // Optimized solver settings for performance/stability balance
   if (world.solver) {
     world.solver.iterations = Math.min(
       10,
@@ -28,9 +36,10 @@ export function createPhysicsWorld() {
     player: new Material("player"),
   };
 
+  // Enhanced default contact material settings
   world.defaultContactMaterial.friction = 0.45;
   world.defaultContactMaterial.restitution = 0.05;
-  world.defaultContactMaterial.contactEquationStiffness = 1.2e7;
+  world.defaultContactMaterial.contactEquationStiffness = 1.5e7;
   world.defaultContactMaterial.contactEquationRelaxation = 2;
 
   const groundBody = new Body({
@@ -60,10 +69,23 @@ export function createPhysicsWorld() {
     })
   );
 
+  // Player-dynamic object interactions
+  world.addContactMaterial(new ContactMaterial(materials.player, materials.dynamic, {
+    friction: 0.3,
+    restitution: 0.2,
+    contactEquationStiffness: 5000000,
+    contactEquationRelaxation: 4,
+  }));
+
   return { world, materials };
 }
 
+/**
+ * Steps the physics simulation forward with optimized settings
+ * @param {World} world - The Cannon.js physics world to step
+ * @param {number} delta - Time elapsed since last frame in seconds
+ */
 export function stepPhysics(world, delta) {
-  // Fixed step with a slightly higher max substeps for robustness against tunneling
-  world.step(1 / 60, delta, 4);
+  // Optimized fixed step with reduced substeps for better performance
+  world.step(1 / 60, delta, 3); // Reduced from 4 to 3 substeps
 }

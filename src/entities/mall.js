@@ -87,7 +87,9 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       mixer,
       chunkKey: null,
     };
-    body.userData = record;
+    // Use dedicated collision property to avoid userData namespace conflicts
+    body.userData = body.userData || {};
+    body.userData.collisionRecord = record;
     if (materials) {
       if (body.mass === 0 && materials.ground) {
         body.material = materials.ground;
@@ -339,7 +341,10 @@ export function createMall(world, scene, assets = {}, materials = {}) {
         scene.remove(record.mesh);
       }
     }
-    record.body.userData = undefined;
+    // Clear collision record while preserving other userData
+    if (record.body.userData) {
+      record.body.userData.collisionRecord = undefined;
+    }
 
     const index = interactables.indexOf(record);
     if (index !== -1) {
@@ -485,7 +490,7 @@ export function createMall(world, scene, assets = {}, materials = {}) {
       }
     },
     handleCollision(body, hitterBody) {
-      const record = body?.userData;
+      const record = body?.userData?.collisionRecord;
       if (!record) return null;
       if (typeof record !== "object") {
         warnOnce(
