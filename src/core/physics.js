@@ -6,7 +6,7 @@ import {
   SAPBroadphase,
   Vec3,
   World,
-} from 'cannon-es';
+} from "cannon-es";
 
 // --> Core Physics: constructs the physics world and exposes a fixed-step integrator.
 
@@ -23,15 +23,17 @@ export function createPhysicsWorld() {
 
   // Optimized solver settings for performance/stability balance
   if (world.solver) {
-    world.solver.iterations = 8; // Reduced from 12 for better performance
-    world.solver.tolerance = 0.001; // Slightly relaxed tolerance for performance
+    world.solver.iterations = Math.min(
+      10,
+      Math.max(5, (world.solver.iterations ?? 10) - 3)
+    );
+    world.solver.tolerance = 0.001;
   }
 
   const materials = {
-    ground: new Material('ground'),
-    dynamic: new Material('dynamic'),
-    player: new Material('player'),
-    wheel: new Material('wheel'), // New material for wheel physics
+    ground: new Material("ground"),
+    dynamic: new Material("dynamic"),
+    player: new Material("player"),
   };
 
   // Enhanced default contact material settings
@@ -40,32 +42,32 @@ export function createPhysicsWorld() {
   world.defaultContactMaterial.contactEquationStiffness = 1.5e7;
   world.defaultContactMaterial.contactEquationRelaxation = 2;
 
-  const groundBody = new Body({ mass: 0, shape: new CannonPlane(), material: materials.ground });
+  const groundBody = new Body({
+    mass: 0,
+    shape: new CannonPlane(),
+    material: materials.ground,
+  });
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
   world.addBody(groundBody);
 
-  // Enhanced contact materials for better scooter physics
-  world.addContactMaterial(new ContactMaterial(materials.player, materials.ground, {
-    friction: 0.75, // Increased friction for better control
-    restitution: 0.02, // Reduced bounce
-    contactEquationStiffness: 15000000, // Increased stiffness
-    contactEquationRelaxation: 2,
-  }));
+  // Tuning contact pairs for predictable ricochet-less sliding
+  world.addContactMaterial(
+    new ContactMaterial(materials.player, materials.ground, {
+      friction: 0.65,
+      restitution: 0.05,
+      contactEquationStiffness: 10000000,
+      contactEquationRelaxation: 2,
+    })
+  );
 
-  // Wheel-ground contact for realistic tire physics
-  world.addContactMaterial(new ContactMaterial(materials.wheel, materials.ground, {
-    friction: 0.9, // High friction for good traction
-    restitution: 0.1,
-    contactEquationStiffness: 20000000,
-    contactEquationRelaxation: 1.5,
-  }));
-
-  world.addContactMaterial(new ContactMaterial(materials.dynamic, materials.ground, {
-    friction: 0.8,
-    restitution: 0.15,
-    contactEquationStiffness: 8000000,
-    contactEquationRelaxation: 3,
-  }));
+  world.addContactMaterial(
+    new ContactMaterial(materials.dynamic, materials.ground, {
+      friction: 0.8,
+      restitution: 0.15,
+      contactEquationStiffness: 5000000,
+      contactEquationRelaxation: 3,
+    })
+  );
 
   // Player-dynamic object interactions
   world.addContactMaterial(new ContactMaterial(materials.player, materials.dynamic, {

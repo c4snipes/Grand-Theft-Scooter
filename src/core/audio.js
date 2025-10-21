@@ -16,11 +16,11 @@ export class AudioManager {
 
   async initialize() {
     if (this.initialized) return;
-    
+
     try {
       // Create audio context (requires user interaction)
       this.context = new (window.AudioContext || window.webkitAudioContext)();
-      
+
       // Create master gain node
       this.masterGain = this.context.createGain();
       this.masterGain.gain.value = this.masterVolume;
@@ -37,11 +37,11 @@ export class AudioManager {
 
       // Initialize engine sound
       await this.initializeEngineSound();
-      
+
       this.initialized = true;
-      console.log('[Audio] Audio system initialized');
+      console.log("[Audio] Audio system initialized");
     } catch (error) {
-      console.warn('[Audio] Failed to initialize audio system:', error);
+      console.warn("[Audio] Failed to initialize audio system:", error);
     }
   }
 
@@ -55,17 +55,17 @@ export class AudioManager {
 
     // Low frequency rumble
     this.engineOsc1 = this.context.createOscillator();
-    this.engineOsc1.type = 'sawtooth';
+    this.engineOsc1.type = "sawtooth";
     this.engineOsc1.frequency.value = 40;
-    
+
     // Mid frequency buzz
     this.engineOsc2 = this.context.createOscillator();
-    this.engineOsc2.type = 'square';
+    this.engineOsc2.type = "square";
     this.engineOsc2.frequency.value = 80;
 
     // High frequency whine
     this.engineOsc3 = this.context.createOscillator();
-    this.engineOsc3.type = 'sine';
+    this.engineOsc3.type = "sine";
     this.engineOsc3.frequency.value = 200;
 
     // Connect oscillators with different gains
@@ -95,10 +95,10 @@ export class AudioManager {
 
     const normalizedSpeed = Math.min(speed / 20, 1); // Normalize to 0-1
     const engineVolume = Math.max(0.1, normalizedSpeed * 0.4 + throttle * 0.3);
-    
+
     // Smooth volume changes
     this.engineGain.gain.linearRampToValueAtTime(
-      engineVolume, 
+      engineVolume,
       this.context.currentTime + 0.1
     );
 
@@ -129,17 +129,22 @@ export class AudioManager {
 
     if (!this.bufferPool.has(key)) {
       const bufferSize = this.context.sampleRate * duration;
-      const buffer = this.context.createBuffer(1, bufferSize, this.context.sampleRate);
+      const buffer = this.context.createBuffer(
+        1,
+        bufferSize,
+        this.context.sampleRate
+      );
       const data = buffer.getChannelData(0);
 
       // Generate different collision sounds based on type
       for (let i = 0; i < bufferSize; i++) {
-        if (type === 'metal') {
+        if (type === "metal") {
           // Metallic clang
           data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
-        } else if (type === 'human') {
+        } else if (type === "human") {
           // Softer thud
-          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5)) * 0.7;
+          data[i] =
+            (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5)) * 0.7;
         } else {
           // Default crash
           data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
@@ -153,7 +158,7 @@ export class AudioManager {
   }
 
   // Generate collision sound based on impact intensity
-  playCollisionSound(intensity = 1, type = 'default') {
+  playCollisionSound(intensity = 1, type = "default") {
     if (!this.context || !this.initialized) return;
 
     const duration = 0.2 + intensity * 0.3;
@@ -169,14 +174,14 @@ export class AudioManager {
 
     // Apply filter based on collision type
     const filter = this.context.createBiquadFilter();
-    if (type === 'metal') {
-      filter.type = 'highpass';
+    if (type === "metal") {
+      filter.type = "highpass";
       filter.frequency.value = 800;
-    } else if (type === 'human') {
-      filter.type = 'lowpass';
+    } else if (type === "human") {
+      filter.type = "lowpass";
       filter.frequency.value = 400;
     } else {
-      filter.type = 'bandpass';
+      filter.type = "bandpass";
       filter.frequency.value = 600;
     }
 
@@ -206,14 +211,23 @@ export class AudioManager {
     const duration = 0.3;
 
     const osc = this.context.createOscillator();
-    osc.type = 'sine';
+    osc.type = "sine";
     osc.frequency.setValueAtTime(frequency, this.context.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(frequency * 1.5, this.context.currentTime + 0.1);
-    osc.frequency.exponentialRampToValueAtTime(frequency * 0.8, this.context.currentTime + duration);
+    osc.frequency.exponentialRampToValueAtTime(
+      frequency * 1.5,
+      this.context.currentTime + 0.1
+    );
+    osc.frequency.exponentialRampToValueAtTime(
+      frequency * 0.8,
+      this.context.currentTime + duration
+    );
 
     const gain = this.context.createGain();
     gain.gain.setValueAtTime(0.4, this.context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
+    gain.gain.exponentialRampToValueAtTime(
+      0.01,
+      this.context.currentTime + duration
+    );
 
     // Track nodes for cleanup
     this.activeNodes.add(osc);
@@ -244,13 +258,19 @@ export class AudioManager {
       const freq = baseFreq + i * 100;
 
       const osc = this.context.createOscillator();
-      osc.type = 'triangle';
+      osc.type = "triangle";
       osc.frequency.value = freq;
 
       const gain = this.context.createGain();
       gain.gain.setValueAtTime(0, this.context.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.3, this.context.currentTime + delay + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + delay + 0.2);
+      gain.gain.linearRampToValueAtTime(
+        0.3,
+        this.context.currentTime + delay + 0.05
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        this.context.currentTime + delay + 0.2
+      );
 
       // Track nodes for cleanup
       nodes.push(osc, gain);
@@ -288,16 +308,16 @@ export class AudioManager {
 
   // Resume audio context (required after user interaction)
   resume() {
-    if (this.context && this.context.state === 'suspended') {
+    if (this.context && this.context.state === "suspended") {
       this.context.resume();
     }
   }
 
   // Clean up audio nodes to prevent memory leaks
   cleanupAudioNodes(nodes) {
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       try {
-        if (node && typeof node.disconnect === 'function') {
+        if (node && typeof node.disconnect === "function") {
           node.disconnect();
         }
         this.activeNodes.delete(node);
@@ -305,16 +325,18 @@ export class AudioManager {
         // Ignore cleanup errors
       }
     });
+    // Remove all nodes from activeNodes in batch
+    nodes.forEach((node) => this.activeNodes.delete(node));
   }
 
   // Clean up all active audio nodes
   cleanupAllNodes() {
-    this.activeNodes.forEach(node => {
+    this.activeNodes.forEach((node) => {
       try {
-        if (node && typeof node.disconnect === 'function') {
+        if (node && typeof node.disconnect === "function") {
           node.disconnect();
         }
-        if (node && typeof node.stop === 'function') {
+        if (node && typeof node.stop === "function") {
           node.stop();
         }
       } catch (error) {
@@ -327,13 +349,16 @@ export class AudioManager {
   dispose() {
     // Stop and disconnect engine oscillators
     if (this.engineOsc1) {
-      try { this.engineOsc1.stop(); this.engineOsc1.disconnect(); } catch (_) {}
+      try {
+        this.engineOsc1.stop();
+        this.engineOsc1.disconnect();
+      } catch (_) { }
     }
     if (this.engineOsc2) {
-      try { this.engineOsc2.stop(); this.engineOsc2.disconnect(); } catch (_) {}
-    }
-    if (this.engineOsc3) {
-      try { this.engineOsc3.stop(); this.engineOsc3.disconnect(); } catch (_) {}
+      try {
+        this.engineOsc2.stop();
+        this.engineOsc2.disconnect();
+      } catch (_) { }
     }
 
     // Clean up all active nodes
@@ -350,7 +375,7 @@ export class AudioManager {
       try {
         this.context.close();
       } catch (error) {
-        console.warn('[Audio] Error closing audio context:', error);
+        console.warn("[Audio] Error closing audio context:", error);
       }
     }
 

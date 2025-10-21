@@ -2,22 +2,22 @@ const DEFAULT_MESSAGE_DURATION = 3200;
 const Hint = Object.freeze({ Short: 2600, Long: 4800 });
 
 function createMetric(list, label, initialValue) {
-  const term = document.createElement('dt');
+  const term = document.createElement("dt");
   term.textContent = label;
   Object.assign(term.style, {
-    margin: '0',
-    fontSize: '14px',
-    fontWeight: '500',
-    opacity: '0.78',
+    margin: "0",
+    fontSize: "14px",
+    fontWeight: "500",
+    opacity: "0.78",
   });
 
-  const value = document.createElement('dd');
+  const value = document.createElement("dd");
   value.textContent = initialValue;
   Object.assign(value.style, {
-    margin: '0',
-    fontSize: '15px',
-    fontFamily: 'monospace',
-    textAlign: 'right',
+    margin: "0",
+    fontSize: "15px",
+    fontFamily: "monospace",
+    textAlign: "right",
   });
 
   list.appendChild(term);
@@ -34,85 +34,84 @@ function formatDuration(seconds) {
   const totalSeconds = Math.max(0, Math.floor(seconds));
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 // --> HUD Scoreboard: now a toggleable telemetry dashboard instead of a permanent box.
 export function createScoreboard() {
-  const root = document.createElement('div');
-  root.id = 'hud-layer';
+  const root = document.createElement("div");
+  root.id = "hud-layer";
   Object.assign(root.style, {
-    position: 'fixed',
-    inset: '0',
-    pointerEvents: 'none',
-    zIndex: '20',
+    position: "fixed",
+    inset: "0",
+    pointerEvents: "none",
+    zIndex: "20",
   });
   document.body.appendChild(root);
 
-  const messageBar = document.createElement('div');
+  const messageBar = document.createElement("div");
   Object.assign(messageBar.style, {
-    position: 'absolute',
-    bottom: '28px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    color: '#ffffff',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '18px',
-    textShadow: '0 2px 8px rgba(0, 0, 0, 0.65)',
-    opacity: '0',
-    transition: 'opacity 140ms ease-out',
-    maxWidth: '70vw',
-    textAlign: 'center',
-    letterSpacing: '0.01em',
-    pointerEvents: 'none',
+    position: "absolute",
+    bottom: "28px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "#ffffff",
+    fontFamily: "Arial, sans-serif",
+    fontSize: "18px",
+    textShadow: "0 2px 8px rgba(0, 0, 0, 0.65)",
+    opacity: "0",
+    transition: "opacity 140ms ease-out",
+    maxWidth: "70vw",
+    textAlign: "center",
+    letterSpacing: "0.01em",
+    pointerEvents: "none",
   });
   root.appendChild(messageBar);
 
-  const panel = document.createElement('div');
+  const panel = document.createElement("div");
   Object.assign(panel.style, {
-    position: 'absolute',
-    top: '64px',
-    right: '42px',
-    minWidth: '240px',
-    padding: '18px 20px',
-    borderRadius: '14px',
-    background: 'rgba(10, 16, 24, 0.95)',
-    color: '#eef3ff',
-    boxShadow: '0 18px 38px rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(8px)',
-    display: 'none',
-    pointerEvents: 'auto',
+    position: "absolute",
+    top: "64px",
+    right: "42px",
+    minWidth: "240px",
+    padding: "18px 20px",
+    borderRadius: "14px",
+    background: "rgba(10, 16, 24, 0.95)",
+    color: "#eef3ff",
+    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.4)",
+    backdropFilter: "blur(8px)",
+    display: "none",
+    pointerEvents: "auto",
   });
   root.appendChild(panel);
 
-  const header = document.createElement('div');
-  header.textContent = 'Scooter Telemetry';
+  const header = document.createElement("div");
+  header.textContent = "Scooter Telemetry";
   Object.assign(header.style, {
-    fontSize: '18px',
-    fontWeight: '600',
-    marginBottom: '12px',
+    fontSize: "18px",
+    fontWeight: "600",
+    marginBottom: "12px",
   });
   panel.appendChild(header);
 
-  const metricsList = document.createElement('dl');
+  const metricsList = document.createElement("dl");
   Object.assign(metricsList.style, {
-    margin: '0',
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    columnGap: '18px',
-    rowGap: '10px',
+    margin: "0",
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    columnGap: "18px",
+    rowGap: "10px",
   });
   panel.appendChild(metricsList);
 
   const nodes = {
-    score: createMetric(metricsList, 'Score', '0'),
-    combo: createMetric(metricsList, 'Combo', '0x'),
-    speed: createMetric(metricsList, 'Speed', '0.0 km/h'),
-    topSpeed: createMetric(metricsList, 'Top speed', '0.0 km/h'),
-    targets: createMetric(metricsList, 'Targets hit', '0'),
-    hazards: createMetric(metricsList, 'Hazard collisions', '0'),
-    runtime: createMetric(metricsList, 'Run time', '0:00'),
-    status: createMetric(metricsList, 'Status', 'Ready'),
+    score: createMetric(metricsList, "Score", "0"),
+    speed: createMetric(metricsList, "Speed", "0.0 km/h"),
+    topSpeed: createMetric(metricsList, "Top speed", "0.0 km/h"),
+    targets: createMetric(metricsList, "Targets hit", "0"),
+    hazards: createMetric(metricsList, "Hazard collisions", "0"),
+    runtime: createMetric(metricsList, "Run time", "0:00"),
+    status: createMetric(metricsList, "Status", "Ready"),
   };
 
   const totals = {
@@ -123,7 +122,7 @@ export function createScoreboard() {
     targets: 0,
     hazards: 0,
     runtime: 0,
-    status: 'Ready',
+    status: "Ready",
   };
 
   let messageTimer = null;
@@ -140,7 +139,7 @@ export function createScoreboard() {
   }
 
   function applyDashboardVisibility() {
-    panel.style.display = dashboardVisible ? 'block' : 'none';
+    panel.style.display = dashboardVisible ? "block" : "none";
   }
 
   function clamp(number, min, max) {
@@ -162,45 +161,50 @@ export function createScoreboard() {
       return totals.score;
     },
     updateTelemetry(patch = {}) {
-      if (typeof patch.speed === 'number') totals.speed = clamp(patch.speed, 0, 150);
-      if (typeof patch.topSpeed === 'number') totals.topSpeed = Math.max(0, patch.topSpeed);
-      if (typeof patch.hits === 'number') {
+      if (typeof patch.speed === "number")
+        totals.speed = clamp(patch.speed, 0, 150);
+      if (typeof patch.topSpeed === "number")
+        totals.topSpeed = Math.max(0, patch.topSpeed);
+      if (typeof patch.hits === "number") {
         totals.targets = patch.hits;
       }
-      if (typeof patch.hazards === 'number') {
+      if (typeof patch.hazards === "number") {
         totals.hazards = patch.hazards;
       }
-      if (typeof patch.runtime === 'number') {
+      if (typeof patch.runtime === "number") {
         totals.runtime = patch.runtime;
       }
-      if (typeof patch.status === 'string') {
+      if (typeof patch.status === "string") {
         totals.status = patch.status;
       }
       render();
     },
     setMessage(message, options = {}) {
-      const duration = typeof options.duration === 'number' ? options.duration : DEFAULT_MESSAGE_DURATION;
+      const duration =
+        typeof options.duration === "number"
+          ? options.duration
+          : DEFAULT_MESSAGE_DURATION;
       if (messageTimer) {
         clearTimeout(messageTimer);
         messageTimer = null;
       }
       if (!message) {
-        messageBar.style.opacity = '0';
-        messageBar.textContent = '';
+        messageBar.style.opacity = "0";
+        messageBar.textContent = "";
         return;
       }
       messageBar.textContent = message;
-      messageBar.style.opacity = '1';
+      messageBar.style.opacity = "1";
       if (Number.isFinite(duration) && duration > 0) {
         messageTimer = setTimeout(() => {
-          messageBar.style.opacity = '0';
-          messageBar.textContent = '';
+          messageBar.style.opacity = "0";
+          messageBar.textContent = "";
           messageTimer = null;
         }, duration);
       }
     },
     clearMessage() {
-      this.setMessage('');
+      this.setMessage("");
     },
     setDashboardVisible(show) {
       dashboardVisible = Boolean(show);

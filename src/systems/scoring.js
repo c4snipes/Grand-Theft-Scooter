@@ -107,7 +107,7 @@ export class ScoringSystem {
     let finalPoints = Math.floor(basePoints * speedBonus * comboMultiplier);
 
     // Bonus for hitting same type consecutively (reduced from 30% to 20%)
-    if (this.lastHitType === targetLabel && this.consecutiveHits >= 1) {
+    if (this.lastHitType === targetLabel && this.consecutiveHits >= 2) {
       finalPoints = Math.floor(finalPoints * 1.2); // 20% bonus for consecutive same-type hits
     }
 
@@ -145,7 +145,7 @@ export class ScoringSystem {
     this.score += finalPoints;
 
     // Play appropriate sounds
-    this.playScoringSounds(finalPoints, this.combo, targetLabel);
+    this.playScoringSounds(finalPoints, this.combo);
 
     // Trigger callbacks
     if (this.callbacks.onScoreUpdate) {
@@ -207,7 +207,7 @@ export class ScoringSystem {
   }
 
   // Play appropriate sounds for scoring
-  playScoringSounds(points, combo, targetLabel) {
+  playScoringSounds(points, combo) {
     // Play base score sound
     audioManager.playScoreSound(points);
 
@@ -219,8 +219,12 @@ export class ScoringSystem {
     // Special sound for high-value targets
     if (points > 1000) {
       // Play additional celebratory sound
-      setTimeout(() => {
+      if (this._scoreSoundTimeout) {
+        clearTimeout(this._scoreSoundTimeout);
+      }
+      this._scoreSoundTimeout = setTimeout(() => {
         audioManager.playScoreSound(points * 0.5);
+        this._scoreSoundTimeout = null;
       }, 200);
     }
   }
@@ -276,6 +280,12 @@ export class ScoringSystem {
       onComboUpdate: null,
       onSpecialBonus: null
     };
+
+    // Clear any pending score sound timeout
+    if (this._scoreSoundTimeout) {
+      clearTimeout(this._scoreSoundTimeout);
+      this._scoreSoundTimeout = null;
+    }
 
     // Reset all scoring data
     this.reset();

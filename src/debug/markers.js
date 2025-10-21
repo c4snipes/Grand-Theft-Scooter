@@ -11,13 +11,13 @@ import {
   EdgesGeometry,
   LineSegments,
   Vector3,
-} from 'three';
+} from "three";
 
 // Simple visual debug markers for spawn/floor diagnostics
 // Toggle via window.DEBUG_SPAWN or call setEnabled(true)
 export function createDebugMarkers(scene) {
   const root = new Group();
-  root.name = 'debug-markers';
+  root.name = "debug-markers";
   scene.add(root);
 
   let enabled = false;
@@ -52,7 +52,10 @@ export function createDebugMarkers(scene) {
   function ensureHitLine() {
     if (!hitLine) {
       const geom = new BufferGeometry();
-      geom.setAttribute('position', new Float32BufferAttribute(new Float32Array(6), 3));
+      geom.setAttribute(
+        "position",
+        new Float32BufferAttribute(new Float32Array(6), 3)
+      );
       hitLine = new Line(geom, lineMat);
       hitLine.renderOrder = 9999;
       root.add(hitLine);
@@ -73,14 +76,21 @@ export function createDebugMarkers(scene) {
     hitSphere.position.set(x, y, z);
     hitSphere.visible = true;
     // Vertical line from just above to the hit point
-    const p = hitLine.geometry.getAttribute('position');
+    const p = hitLine.geometry.getAttribute("position");
     p.setXYZ(0, x, y + 1.0, z);
     p.setXYZ(1, x, y, z);
     p.needsUpdate = true;
     hitLine.visible = true;
   }
 
-  function showFloorSlab({ x = 0, y = 0, z = 0, hx = 1, hy = 0.5, hz = 1 } = {}) {
+  function showFloorSlab({
+    x = 0,
+    y = 0,
+    z = 0,
+    hx = 1,
+    hy = 0.5,
+    hz = 1,
+  } = {}) {
     if (!enabled) return;
     const sizeX = Math.max(0.01, hx * 2);
     const sizeY = Math.max(0.01, hy * 2);
@@ -89,7 +99,7 @@ export function createDebugMarkers(scene) {
     const edges = new EdgesGeometry(box);
     if (!slabWire) {
       slabWire = new LineSegments(edges, wireMat);
-      slabWire.name = 'debug-floor-slab-wire';
+      slabWire.name = "debug-floor-slab-wire";
       root.add(slabWire);
     } else {
       slabWire.geometry.dispose?.();
@@ -121,7 +131,8 @@ export function createDebugMarkers(scene) {
     setFloorHit,
     showFloorSlab,
     clear,
-    get enabled() { return enabled; },
+    get enabled() {
+      return enabled;
+    },
   };
 }
-

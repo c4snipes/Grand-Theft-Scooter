@@ -11,8 +11,8 @@ import {
   Scene,
   Vector3,
   WebGLRenderer,
-} from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+} from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 // --> Core Environment: I pieced this together from a few tutorials so the scene actually shows up.
 export function createEnvironment(canvas, assets = {}, options = {}) {
@@ -24,17 +24,21 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   let SHADOWS_ENABLED = false;
   renderer.shadowMap.enabled = SHADOWS_ENABLED;
 
-
   const scene = new Scene();
-  scene.background = new Color('#dfe6ef');
+  scene.background = new Color("#dfe6ef");
 
   // Camera that sits kind of behind the scooter.
-  const camera = new PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+  const camera = new PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    2000
+  );
   camera.position.set(50, 28, 50);
   scene.add(camera);
 
-  renderer.domElement.style.cursor = 'grab';
-  renderer.domElement.style.touchAction = 'none';
+  renderer.domElement.style.cursor = "grab";
+  renderer.domElement.style.touchAction = "none";
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -44,11 +48,11 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   controls.enableKeys = false; // Disable arrow/WASD key panning for free cam
 
   controls.update();
-  controls.addEventListener('start', () => {
-    renderer.domElement.style.cursor = 'grabbing';
+  controls.addEventListener("start", () => {
+    renderer.domElement.style.cursor = "grabbing";
   });
-  controls.addEventListener('end', () => {
-    renderer.domElement.style.cursor = 'grab';
+  controls.addEventListener("end", () => {
+    renderer.domElement.style.cursor = "grab";
   });
 
   // Bright, neutral lights so assets pop against the background.
@@ -65,22 +69,23 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
 
   // Flat ground so the physics bodies have something to collide with.
   const groundMaterial = new MeshStandardMaterial({
-    color: '#d1d9e6',
+    color: "#d1d9e6",
     metalness: 0.02,
     roughness: 0.75,
   });
 
   let ground = null;
 
-
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
-    mall.name = 'shopping-mall';
+    mall.name = "shopping-mall";
     const mallScale = 24;
     mall.scale.setScalar(mallScale);
-    const characterNamePattern = /character|people|person|crowd|npc|male|female|man|woman|boy|girl|standee|cutout|cardboard/;
+    const characterNamePattern =
+      /character|people|person|crowd|npc|male|female|man|woman|boy|girl|standee|cutout|cardboard/;
     mall.traverse((child) => {
-      const name = typeof child.name === 'string' ? child.name.toLowerCase() : '';
+      const name =
+        typeof child.name === "string" ? child.name.toLowerCase() : "";
       if (name && characterNamePattern.test(name)) {
         child.visible = false;
         return;
@@ -91,11 +96,13 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
         if (Array.isArray(child.material)) {
           child.material.forEach((mat) => {
             if (mat && mat.map) {
-              mat.map.colorSpace = mat.map.colorSpace ?? renderer.outputColorSpace;
+              mat.map.colorSpace =
+                mat.map.colorSpace ?? renderer.outputColorSpace;
             }
           });
         } else if (child.material && child.material.map) {
-          child.material.map.colorSpace = child.material.map.colorSpace ?? renderer.outputColorSpace;
+          child.material.map.colorSpace =
+            child.material.map.colorSpace ?? renderer.outputColorSpace;
         }
       }
     });
@@ -114,10 +121,10 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();
-  let cameraMode = 'orbit';
+  let cameraMode = "orbit";
 
   function updateCameraFollow(target) {
-    if (cameraMode !== 'follow' || !target) return;
+    if (cameraMode !== "follow" || !target) return;
     cameraTarget.copy(target.position);
     tmpOffset.copy(cameraOffset).applyQuaternion(target.quaternion);
     desiredCamera.copy(target.position).add(tmpOffset);
@@ -133,27 +140,27 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   }
 
   const brightPalette = {
-    background: '#dfe6ef',
-    ambientColor: '#ffffff',
+    background: "#dfe6ef",
+    ambientColor: "#ffffff",
     ambientIntensity: 0.7,
-    hemisphereSky: '#f3f7fe',
-    hemisphereGround: '#c9d6e6',
+    hemisphereSky: "#f3f7fe",
+    hemisphereGround: "#c9d6e6",
     hemisphereIntensity: 0.6,
-    sunColor: '#fff3db',
+    sunColor: "#fff3db",
     sunIntensity: 1.2,
-    groundColor: '#d1d9e6',
+    groundColor: "#d1d9e6",
   };
 
   const darkPalette = {
-    background: '#0b1014',
-    ambientColor: '#1d2939',
+    background: "#0b1014",
+    ambientColor: "#1d2939",
     ambientIntensity: 0.6,
-    hemisphereSky: '#1e293b',
-    hemisphereGround: '#0b1014',
+    hemisphereSky: "#1e293b",
+    hemisphereGround: "#0b1014",
     hemisphereIntensity: 0.32,
-    sunColor: '#94a3b8',
+    sunColor: "#94a3b8",
     sunIntensity: 0.85,
-    groundColor: '#111c27',
+    groundColor: "#111c27",
   };
 
   function applyPalette(palette) {
@@ -188,18 +195,18 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   setColorMode(options.theme);
 
   function setCameraMode(mode) {
-    cameraMode = mode === 'follow' ? 'follow' : 'orbit';
-    controls.enabled = cameraMode === 'orbit';
+    cameraMode = mode === "follow" ? "follow" : "orbit";
+    controls.enabled = cameraMode === "orbit";
     if (controls.enabled) {
       controls.update();
     }
     // When switching modes, gently adjust far plane if user is spanning more chunks
-    camera.far = cameraMode === 'orbit' ? 3000 : 2000;
+    camera.far = cameraMode === "orbit" ? 3000 : 2000;
     camera.updateProjectionMatrix();
   }
 
   function updateCamera(target) {
-    if (cameraMode === 'orbit') {
+    if (cameraMode === "orbit") {
       controls.update();
     } else {
       updateCameraFollow(target);
@@ -211,7 +218,9 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     if (SHADOWS_ENABLED === next) return;
     SHADOWS_ENABLED = next;
     renderer.shadowMap.enabled = SHADOWS_ENABLED;
-    try { sun.castShadow = SHADOWS_ENABLED; } catch (_) {}
+    try {
+      sun.castShadow = SHADOWS_ENABLED;
+    } catch (_) { }
     try {
       // Update all current meshes to reflect new shadow setting
       scene.traverse((child) => {
@@ -220,7 +229,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
           child.receiveShadow = SHADOWS_ENABLED;
         }
       });
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return {
@@ -236,7 +245,9 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     setColorMode,
     setShadowsEnabled,
     dispose: () => {
-      try { controls?.dispose?.(); } catch (_) {}
+      try {
+        controls?.dispose?.();
+      } catch (_) { }
       if (removeColorSchemeListener) {
         removeColorSchemeListener();
       }
