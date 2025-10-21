@@ -1,23 +1,810 @@
 import { Clock, Vector3, Raycaster, Box3 } from "three";
 import { Body, Box as CannonBox, Vec3 } from "cannon-es";
+import {
+  createEnvironment,
+  createPhysicsWorld,
+  stepPhysics,
+  loadMallAssets,
+  loadNpcPacks,
+  assertDefined,
+  invariant,
+  createSpawnSelector,
+  createGameLoop,
+  audioManager,
+  scoringSystem,
+  getCollisionType,
+} from "./coreAndSystems.js";
+import {
+  createMall,
+  createScooter,
+  createDebugMarkers,
+  performanceMonitor,
+} from "./entitiesAndDebug.js";
 
-import { createEnvironment } from './core/environment';
-import { createPhysicsWorld, stepPhysics } from './core/physics';
-import { createScoreboard } from './hud/scoreboard';
-import { createMall } from './entities/mall';
-import { createScooter } from './entities/scooter';
-import { createGameOverOverlay } from './hud/gameOver';
-import { createKeyboardControls } from './input/keyboard';
-import { createSettingsManager } from './input/controlPrompt';
-import { loadMallAssets, loadNpcPacks } from './core/assets';
-import { assertDefined, invariant } from './core/assert';
-import { createSpawnSelector } from './systems/spawnSelector';
-import { createGameLoop } from './systems/gameLoop';
-import { createDebugMarkers } from './debug/markers';
-import { audioManager } from './core/audio';
-import { scoringSystem } from './systems/scoring';
-import { getCollisionType } from './constants/collisionTypes';
-import { performanceMonitor } from './debug/performanceMonitor';
+
+export function createGameOverOverlay({ onRestart = () => {} } = {}) {
+  const root = document.createElement("div");
+  Object.assign(root.style, {
+    position: "fixed",
+    inset: "0",
+    background: "rgba(0, 0, 0, 0.6)",
+    display: "none",
+    zIndex: "1000",
+    alignItems: "center",
+    justifyContent: "center",
+  });
+  document.body.appendChild(root);
+
+  const panel = document.createElement("div");
+  Object.assign(panel.style, {
+    background: "rgba(18, 22, 30, 0.96)",
+    color: "#eef3ff",
+    borderRadius: "14px",
+    padding: "22px 24px",
+    minWidth: "280px",
+    maxWidth: "80vw",
+    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.4)",
+    textAlign: "center",
+  });
+  root.appendChild(panel);
+
+  const title = document.createElement("h2");
+  title.textContent = "Game Over";
+  Object.assign(title.style, { margin: "0 0 8px", fontSize: "20px" });
+  panel.appendChild(title);
+
+  const message = document.createElement("p");
+  message.textContent = "";
+  Object.assign(message.style, {
+    margin: "0 0 16px",
+    fontSize: "16px",
+    opacity: "0.9",
+  });
+  panel.appendChild(message);
+
+  const buttons = document.createElement("div");
+  Object.assign(buttons.style, {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "center",
+  });
+  panel.appendChild(buttons);
+
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.textContent = "Try Again";
+  Object.assign(retry.style, {
+    padding: "10px 14px",
+    borderRadius: "10px",
+    background: "#4f46e5",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "600",
+  });
+  buttons.appendChild(retry);
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.textContent = "Close";
+  Object.assign(close.style, {
+    padding: "10px 14px",
+    borderRadius: "10px",
+    background: "#111827",
+    color: "#cbd5e1",
+    border: "1px solid #1f2937",
+    cursor: "pointer",
+    fontWeight: "600",
+  });
+  buttons.appendChild(close);
+
+  function show(text = "") {
+    message.textContent = text;
+    root.style.display = "flex";
+  }
+
+  function hide() {
+    root.style.display = "none";
+  }
+
+  retry.addEventListener("click", () => {
+    hide();
+    onRestart();
+  });
+  close.addEventListener("click", hide);
+
+  return {
+    show,
+    hide,
+    dispose() {
+      if (root?.parentNode) {
+        root.parentNode.removeChild(root);
+      }
+    },
+  };
+}
+
+const DEFAULT_MESSAGE_DURATION_MS = 3200;
+const HINT_DURATIONS = Object.freeze({ short: 2600, long: 4800 });
+
+function createMetric(list, label, initialValue) {
+  const term = document.createElement("dt");
+  term.textContent = label;
+  Object.assign(term.style, {
+    margin: "0",
+    fontSize: "14px",
+    fontWeight: "500",
+    opacity: "0.78",
+  });
+
+  const value = document.createElement("dd");
+  value.textContent = initialValue;
+  Object.assign(value.style, {
+    margin: "0",
+    fontSize: "15px",
+    fontFamily: "monospace",
+    textAlign: "right",
+  });
+
+  list.appendChild(term);
+  list.appendChild(value);
+  return value;
+}
+
+function formatSpeed(value) {
+  const kmh = value * 3.6;
+  return `${kmh.toFixed(1)} km/h`;
+}
+
+function formatDuration(seconds) {
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+// --> HUD Scoreboard: now a toggleable telemetry dashboard instead of a permanent box.
+export function createScoreboard() {
+  const root = document.createElement("div");
+  root.id = "hud-layer";
+  Object.assign(root.style, {
+    position: "fixed",
+    inset: "0",
+    pointerEvents: "none",
+    zIndex: "20",
+  });
+  document.body.appendChild(root);
+
+  const messageBar = document.createElement("div");
+  Object.assign(messageBar.style, {
+    position: "absolute",
+    bottom: "28px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "#ffffff",
+    fontFamily: "Arial, sans-serif",
+    fontSize: "18px",
+    textShadow: "0 2px 8px rgba(0, 0, 0, 0.65)",
+    opacity: "0",
+    transition: "opacity 140ms ease-out",
+    maxWidth: "70vw",
+    textAlign: "center",
+    letterSpacing: "0.01em",
+    pointerEvents: "none",
+  });
+  root.appendChild(messageBar);
+
+  const panel = document.createElement("div");
+  Object.assign(panel.style, {
+    position: "absolute",
+    top: "64px",
+    right: "42px",
+    minWidth: "240px",
+    padding: "18px 20px",
+    borderRadius: "14px",
+    background: "rgba(10, 16, 24, 0.95)",
+    color: "#eef3ff",
+    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.4)",
+    backdropFilter: "blur(8px)",
+    display: "none",
+    pointerEvents: "auto",
+  });
+  root.appendChild(panel);
+
+  const header = document.createElement("div");
+  header.textContent = "Scooter Telemetry";
+  Object.assign(header.style, {
+    fontSize: "18px",
+    fontWeight: "600",
+    marginBottom: "12px",
+  });
+  panel.appendChild(header);
+
+  const metricsList = document.createElement("dl");
+  Object.assign(metricsList.style, {
+    margin: "0",
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    columnGap: "18px",
+    rowGap: "10px",
+  });
+  panel.appendChild(metricsList);
+
+  const nodes = {
+    score: createMetric(metricsList, "Score", "0"),
+    speed: createMetric(metricsList, "Speed", "0.0 km/h"),
+    topSpeed: createMetric(metricsList, "Top speed", "0.0 km/h"),
+    targets: createMetric(metricsList, "Targets hit", "0"),
+    hazards: createMetric(metricsList, "Hazard collisions", "0"),
+    runtime: createMetric(metricsList, "Run time", "0:00"),
+    status: createMetric(metricsList, "Status", "Ready"),
+  };
+
+  const totals = {
+    score: 0,
+    combo: 0,
+    speed: 0,
+    topSpeed: 0,
+    targets: 0,
+    hazards: 0,
+    runtime: 0,
+    status: "Ready",
+  };
+
+  let messageTimer = null;
+  let dashboardVisible = false;
+
+  function render() {
+    nodes.score.textContent = totals.score.toLocaleString();
+    nodes.speed.textContent = formatSpeed(totals.speed);
+    nodes.topSpeed.textContent = formatSpeed(totals.topSpeed);
+    nodes.targets.textContent = totals.targets.toString();
+    nodes.hazards.textContent = totals.hazards.toString();
+    nodes.runtime.textContent = formatDuration(totals.runtime);
+    nodes.status.textContent = totals.status;
+  }
+
+  function applyDashboardVisibility() {
+    panel.style.display = dashboardVisible ? "block" : "none";
+  }
+
+  function clamp(number, min, max) {
+    return Math.min(max, Math.max(min, number));
+  }
+
+  render();
+
+  return {
+    award(points, label) {
+      totals.score += points;
+      render();
+      if (label) {
+        this.setMessage(`+${points} for ${label}`, { duration: 1800 });
+      }
+      return totals.score;
+    },
+    getScore() {
+      return totals.score;
+    },
+    updateTelemetry(patch = {}) {
+      if (typeof patch.speed === "number")
+        totals.speed = clamp(patch.speed, 0, 150);
+      if (typeof patch.topSpeed === "number")
+        totals.topSpeed = Math.max(0, patch.topSpeed);
+      if (typeof patch.hits === "number") {
+        totals.targets = patch.hits;
+      }
+      if (typeof patch.hazards === "number") {
+        totals.hazards = patch.hazards;
+      }
+      if (typeof patch.runtime === "number") {
+        totals.runtime = patch.runtime;
+      }
+      if (typeof patch.status === "string") {
+        totals.status = patch.status;
+      }
+      render();
+    },
+    setMessage(message, options = {}) {
+      const duration =
+        typeof options.duration === "number"
+          ? options.duration
+          : DEFAULT_MESSAGE_DURATION_MS;
+      if (messageTimer) {
+        clearTimeout(messageTimer);
+        messageTimer = null;
+      }
+      if (!message) {
+        messageBar.style.opacity = "0";
+        messageBar.textContent = "";
+        return;
+      }
+      messageBar.textContent = message;
+      messageBar.style.opacity = "1";
+      if (Number.isFinite(duration) && duration > 0) {
+        messageTimer = setTimeout(() => {
+          messageBar.style.opacity = "0";
+          messageBar.textContent = "";
+          messageTimer = null;
+        }, duration);
+      }
+    },
+    clearMessage() {
+      this.setMessage("");
+    },
+    setDashboardVisible(show) {
+      dashboardVisible = Boolean(show);
+      applyDashboardVisibility();
+      return dashboardVisible;
+    },
+    toggleDashboard() {
+      dashboardVisible = !dashboardVisible;
+      applyDashboardVisibility();
+      return dashboardVisible;
+    },
+    isDashboardVisible() {
+      return dashboardVisible;
+    },
+    hint(message, duration = HINT_DURATIONS.long) {
+      this.setMessage(message, { duration });
+    },
+    dispose() {
+      // detach DOM
+      if (root && root.parentNode) {
+        root.parentNode.removeChild(root);
+      }
+    },
+  };
+}
+
+// --> Input Layer: basic keyboard setup so both WASD and arrows work.
+export function createKeyboardControls({ layout = "hybrid" } = {}) {
+  const activeKeys = new Set();
+  const listeners = [];
+
+  function normalizeLayout(input) {
+    if (input === 'arrows') return 'arrows';
+    if (input === 'wasd') return 'wasd';
+    return 'hybrid';
+  }
+
+  function createBindings(currentLayout) {
+    if (currentLayout === 'arrows') {
+      return {
+        forward: new Set(['arrowup']),
+        backward: new Set(['arrowdown']),
+        left: new Set(['arrowleft']),
+        right: new Set(['arrowright']),
+      };
+    }
+    if (currentLayout === 'wasd') {
+      return {
+        forward: new Set(['w']),
+        backward: new Set(['s']),
+        left: new Set(['a']),
+        right: new Set(['d']),
+      };
+    }
+    return {
+      forward: new Set(['arrowup', 'w']),
+      backward: new Set(['arrowdown', 's']),
+      left: new Set(['arrowleft', 'a']),
+      right: new Set(['arrowright', 'd']),
+    };
+  }
+
+  function handleKeyDown(event) {
+    // Prevent accidental page scroll on space in some browsers (only when focused in game)
+    if (event.key === ' ' && event.target === document.body) {
+      event.preventDefault();
+    }
+    activeKeys.add(event.key.toLowerCase());
+  }
+
+  function handleKeyUp(event) {
+    activeKeys.delete(event.key.toLowerCase());
+  }
+
+  listeners.push({ type: 'keydown', handler: handleKeyDown });
+  listeners.push({ type: 'keyup', handler: handleKeyUp });
+
+  listeners.forEach(({ type, handler }) => {
+    window.addEventListener(type, handler);
+  });
+
+  let currentLayout = normalizeLayout(layout);
+  let bindings = createBindings(currentLayout);
+
+  function checkBinding(keys) {
+    for (const key of keys) {
+      if (activeKeys.has(key)) return true;
+    }
+    return false;
+  }
+
+  return {
+    getLayout() {
+      return currentLayout;
+    },
+    setLayout(nextLayout) {
+      currentLayout = normalizeLayout(nextLayout);
+      bindings = createBindings(currentLayout);
+    },
+    read() {
+      const forward = checkBinding(bindings.forward);
+      const backward = checkBinding(bindings.backward);
+      const left = checkBinding(bindings.left);
+      const right = checkBinding(bindings.right);
+      return { forward, backward, left, right };
+    },
+    dispose() {
+      listeners.forEach(({ type, handler }) => {
+        window.removeEventListener(type, handler);
+      });
+      activeKeys.clear();
+    },
+  };
+}
+
+// Keyboard controls return a normalized state for forward/backward/left/right each frame.
+
+const STORAGE_KEY = 'grand-theft-scooter:settings';
+
+function detectPreferredTheme() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'dark';
+  }
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function getDefaultSettings() {
+  return {
+    controlScheme: 'wasd',
+    theme: detectPreferredTheme(),
+    cameraSensitivity: 'normal',
+    shadows: false,
+    debugMarkers: false,
+  };
+}
+
+function createUnavailableSettingsManager(reason, { initialWarned = false } = {}) {
+  const fallback = getDefaultSettings();
+  let warned = initialWarned;
+  function warnOnce() {
+    if (warned) return;
+    warned = true;
+    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+      console.warn(`[settings] ${reason}`);
+    }
+  }
+  return {
+    getControlScheme: () => fallback.controlScheme,
+    getTheme: () => fallback.theme,
+    open: () => {
+      warnOnce();
+    },
+    close: () => {
+      warnOnce();
+    },
+    isOpen: () => false,
+  };
+}
+
+function readStoredSettings() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed) return null;
+    const defaults = getDefaultSettings();
+    return {
+      controlScheme: parsed.controlScheme === 'arrows' ? 'arrows' : defaults.controlScheme,
+      theme: parsed.theme === 'light' ? 'light' : 'dark',
+      cameraSensitivity: ['low', 'normal', 'high'].includes(parsed.cameraSensitivity) ? parsed.cameraSensitivity : defaults.cameraSensitivity,
+      shadows: typeof parsed.shadows === 'boolean' ? parsed.shadows : defaults.shadows,
+      debugMarkers: typeof parsed.debugMarkers === 'boolean' ? parsed.debugMarkers : defaults.debugMarkers,
+    };
+  } catch (error) {
+    console.warn('[settings] Unable to parse stored settings, falling back to defaults.', error);
+    return null;
+  }
+}
+
+function persistSettings(settings) {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.warn('[settings] Failed to persist settings.', error);
+  }
+}
+
+function applyDocumentTheme(theme) {
+  const mode = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', mode);
+}
+
+export function createSettingsManager({ onControlSchemeChange, onThemeChange, onCameraSensitivityChange, onGraphicsChange, onDebugChange } = {}) {
+  if (typeof window === 'undefined') {
+    return createUnavailableSettingsManager('Settings unavailable outside a browser context.');
+  }
+
+  const root = document.querySelector('[data-settings]');
+  if (!root) {
+    console.warn('[settings] Settings panel markup missing. Using defaults.');
+    return createUnavailableSettingsManager('Settings panel markup missing. Using defaults.', { initialWarned: true });
+  }
+
+  const controlInputs = Array.from(root.querySelectorAll('[data-control-option]'));
+  const themeInputs = Array.from(root.querySelectorAll('[data-theme-option]'));
+  const sensitivityInputs = Array.from(root.querySelectorAll('[data-sensitivity-option]'));
+  const shadowsInput = root.querySelector('[data-shadows-option]');
+  const debugMarkersInput = root.querySelector('[data-debug-markers-option]');
+
+  const closeTriggers = Array.from(root.querySelectorAll('[data-settings-close]'));
+
+  const settings = {
+    ...getDefaultSettings(),
+    ...readStoredSettings(),
+  };
+
+  let openState = false;
+  let hideTimer = null;
+
+  // Ensure settings are hidden and non-interactive by default
+  root.hidden = true;
+  root.classList.remove('settings--visible');
+  root.style.pointerEvents = 'none';
+
+  function isUiLocked() {
+    try {
+      return !!document.documentElement && document.documentElement.classList.contains('ui-locked');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function syncControlInputs() {
+    controlInputs.forEach((input) => {
+      input.checked = input.value === settings.controlScheme;
+    });
+  }
+
+  function syncSensitivityInputs() {
+    sensitivityInputs.forEach((input) => {
+      input.checked = input.value === settings.cameraSensitivity;
+    });
+  }
+
+  function syncThemeInputs() {
+    themeInputs.forEach((input) => {
+      input.checked = input.value === settings.theme;
+    });
+  }
+
+  function emitControlChange() {
+    if (typeof onControlSchemeChange === 'function') {
+      onControlSchemeChange(settings.controlScheme);
+    }
+  }
+
+  function emitThemeChange() {
+    if (typeof onThemeChange === 'function') {
+      onThemeChange(settings.theme);
+    }
+  }
+
+  function emitSensitivityChange() {
+    if (typeof onCameraSensitivityChange === 'function') {
+      onCameraSensitivityChange(settings.cameraSensitivity);
+    }
+  }
+
+  function emitGraphicsChange() {
+    if (typeof onGraphicsChange === 'function') {
+      onGraphicsChange({ shadows: !!settings.shadows });
+    }
+  }
+
+  function emitDebugChange() {
+    if (typeof onDebugChange === 'function') {
+      onDebugChange(!!settings.debugMarkers);
+    }
+  }
+
+  function applyControlScheme(nextScheme, { emit = true } = {}) {
+    const normalized = nextScheme === 'arrows' ? 'arrows' : 'wasd';
+    if (settings.controlScheme === normalized) return;
+    settings.controlScheme = normalized;
+    syncControlInputs();
+    persistSettings(settings);
+    if (emit) emitControlChange();
+  }
+
+  function applyCameraSensitivity(next, { emit = true } = {}) {
+    const normalized = ['low', 'normal', 'high'].includes(next) ? next : 'normal';
+    if (settings.cameraSensitivity === normalized) return;
+    settings.cameraSensitivity = normalized;
+    syncSensitivityInputs();
+    persistSettings(settings);
+    if (emit) emitSensitivityChange();
+  }
+
+  function applyTheme(nextTheme, { emit = true } = {}) {
+    const normalized = nextTheme === 'light' ? 'light' : 'dark';
+    if (settings.theme === normalized) return;
+    settings.theme = normalized;
+    applyDocumentTheme(settings.theme);
+    syncThemeInputs();
+    persistSettings(settings);
+    if (emit) emitThemeChange();
+  }
+
+  function open() {
+    if (openState) return;
+    if (isUiLocked()) {
+      return;
+    }
+    openState = true;
+    if (hideTimer) {
+      window.clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    root.hidden = false;
+    root.style.pointerEvents = 'auto';
+    requestAnimationFrame(() => {
+      root.classList.add('settings--visible');
+    });
+    const focusTarget = root.querySelector('input:checked') || root.querySelector('input');
+    if (focusTarget) {
+      focusTarget.focus({ preventScroll: true });
+    }
+  }
+
+  function close() {
+    if (!openState) return;
+    openState = false;
+    root.classList.remove('settings--visible');
+    root.style.pointerEvents = 'none';
+    hideTimer = window.setTimeout(() => {
+      if (!openState) {
+        root.hidden = true;
+      }
+    }, 200);
+  }
+
+  function isOpen() {
+    return openState;
+  }
+
+  function handleKeydown(event) {
+    if (event.key !== 'Escape') return;
+    if (!openState && isUiLocked()) {
+      event.preventDefault();
+      return;
+
+    }
+    if (openState) {
+      event.preventDefault();
+      close();
+    } else {
+      open();
+    }
+  }
+
+  function handleTransitionEnd(event) {
+    if (event.target !== root || event.propertyName !== 'opacity') return;
+    if (!openState) {
+      root.hidden = true;
+    }
+  }
+
+  window.addEventListener('keydown', handleKeydown);
+  root.addEventListener('transitionend', handleTransitionEnd);
+
+  controlInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!openState) return;
+      applyControlScheme(input.value);
+    });
+  });
+
+  themeInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!openState || isUiLocked()) return;
+      applyTheme(input.value);
+    });
+  });
+
+  closeTriggers.forEach((element) => {
+    element.addEventListener('click', (event) => {
+      event.preventDefault();
+      close();
+    });
+
+  });
+
+  // Initial sync applies the saved state, then notifies the rest of the app once.
+  syncControlInputs();
+  applyDocumentTheme(settings.theme);
+  syncThemeInputs();
+  syncSensitivityInputs();
+
+  sensitivityInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!openState) return;
+      applyCameraSensitivity(input.value);
+    });
+  });
+
+  function syncShadowsInput() {
+    if (shadowsInput) {
+      shadowsInput.checked = !!settings.shadows;
+    }
+  }
+
+  function syncDebugMarkersInput() {
+    if (debugMarkersInput) {
+      debugMarkersInput.checked = !!settings.debugMarkers;
+    }
+  }
+
+  if (shadowsInput) {
+    shadowsInput.addEventListener('change', () => {
+      if (!openState || isUiLocked()) { // block background changes while closed/locked
+        shadowsInput.checked = !!settings.shadows; // snap back UI state
+        return;
+      }
+      settings.shadows = !!shadowsInput.checked;
+      persistSettings(settings);
+      emitGraphicsChange();
+    });
+  }
+
+  if (debugMarkersInput) {
+    debugMarkersInput.addEventListener('change', () => {
+      if (!openState || isUiLocked()) {
+        debugMarkersInput.checked = !!settings.debugMarkers;
+        return;
+      }
+      settings.debugMarkers = !!debugMarkersInput.checked;
+      persistSettings(settings);
+      emitDebugChange();
+    });
+  }
+
+  // Initial sync applies the saved state, then notifies the rest of the app once.
+  syncControlInputs();
+  applyDocumentTheme(settings.theme);
+  syncThemeInputs();
+  syncSensitivityInputs();
+  syncShadowsInput();
+  syncDebugMarkersInput();
+
+  emitSensitivityChange();
+  emitControlChange();
+  emitThemeChange();
+  emitGraphicsChange();
+  emitDebugChange();
+
+  return {
+    getControlScheme: () => settings.controlScheme,
+    getTheme: () => settings.theme,
+    getCameraSensitivity: () => settings.cameraSensitivity,
+    getShadowsEnabled: () => !!settings.shadows,
+    getDebugMarkersEnabled: () => !!settings.debugMarkers,
+    open,
+    close,
+    isOpen,
+  };
+}
+
+
 
 // UI Message Templates
 const UI_MESSAGES = {
@@ -56,8 +843,14 @@ function updateHudHints(layout) {
   brakeEl.textContent = "Hold S or ↓ to brake or back up";
 }
 
-async function startGame(canvas) {
+export async function startGame(canvas) {
   assertDefined(canvas, 'Expected to find a canvas with id="app".');
+
+  const CAMERA_SENSITIVITY_PRESETS = {
+    low: { rotate: 0.3, zoom: 0.5, pan: 0.5 },
+    normal: { rotate: 0.5, zoom: 1.0, pan: 1.0 },
+    high: { rotate: 0.8, zoom: 1.5, pan: 1.5 },
+  };
 
   let scoreboard = null;
   let cameraMode = "follow";
@@ -65,6 +858,8 @@ async function startGame(canvas) {
   let applyEnvironmentTheme = () => { };
   let isGameOver = false;
   let spawnSelector = null;
+  let orbitControls = null;
+  let playerControls = null;
 
   // Small loading overlay is visible by default; hide once assets + scene are ready
   const loadingEl = document.querySelector("[data-loading]");
@@ -86,28 +881,21 @@ async function startGame(canvas) {
     scoreboard.setMessage(message, { duration: 4200 });
   }
 
-  // Camera sensitivity function (defined early so it's available for settings manager)
-  let orbitControls = null; // Will be set after environment creation
-  function applyCameraSensitivity(mode) {
+  const applyCameraSensitivity = (mode = "normal") => {
     if (!orbitControls) return;
 
-    const sensitivityMap = {
-      low: { rotate: 0.3, zoom: 0.5, pan: 0.5 },
-      normal: { rotate: 0.5, zoom: 1.0, pan: 1.0 },
-      high: { rotate: 0.8, zoom: 1.5, pan: 1.5 }
-    };
-
-    const settings = sensitivityMap[mode] || sensitivityMap.normal;
-    orbitControls.rotateSpeed = settings.rotate;
-    orbitControls.zoomSpeed = settings.zoom;
-    orbitControls.panSpeed = settings.pan;
-  }
+    const preset =
+      CAMERA_SENSITIVITY_PRESETS[mode] ?? CAMERA_SENSITIVITY_PRESETS.normal;
+    orbitControls.rotateSpeed = preset.rotate;
+    orbitControls.zoomSpeed = preset.zoom;
+    orbitControls.panSpeed = preset.pan;
+  };
 
   const settings = createSettingsManager({
     onControlSchemeChange: (nextLayout) => {
       activeLayout = nextLayout;
-      if (controls) {
-        controls.setLayout(nextLayout);
+      if (playerControls) {
+        playerControls.setLayout(nextLayout);
       }
       updateHudHints(nextLayout);
       refreshCameraMessage();
@@ -115,9 +903,7 @@ async function startGame(canvas) {
     onThemeChange: (themeMode) => {
       applyEnvironmentTheme(themeMode);
     },
-    onCameraSensitivityChange: (mode) => {
-      applyCameraSensitivity(mode);
-    },
+    onCameraSensitivityChange: applyCameraSensitivity,
     onGraphicsChange: (g) => {
       try {
         setShadows?.(!!g?.shadows);
@@ -147,14 +933,14 @@ async function startGame(canvas) {
     setCameraMode,
     updateCamera,
     handleResize,
-    controls,
+    controls: environmentControls,
     setColorMode,
     setShadowsEnabled,
     dispose: disposeEnvironment,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
 
   // Set the orbit controls for camera sensitivity
-  orbitControls = controls;
+  orbitControls = environmentControls;
   invariant(
     renderer && typeof renderer.render === 'function',
     'createEnvironment must supply a renderer with render().'
@@ -201,27 +987,6 @@ async function startGame(canvas) {
     setShadows?.(!!settings.getShadowsEnabled?.());
   } catch (_) { }
 
-  // Camera sensitivity function (moved here after orbitControls is created)
-  function applyCameraSensitivity(mode) {
-    if (!orbitControls) return;
-
-    const sensitivityMap = {
-      low: { rotate: 0.3, zoom: 0.5, pan: 0.5 },
-      normal: { rotate: 0.5, zoom: 1.0, pan: 1.0 },
-      high: { rotate: 0.8, zoom: 1.5, pan: 1.5 },
-    };
-
-    const settings = sensitivityMap[mode] || sensitivityMap.normal;
-    orbitControls.rotateSpeed = settings.rotate;
-    orbitControls.zoomSpeed = settings.zoom;
-    orbitControls.panSpeed = settings.pan;
-  }
-
-  // Apply camera sensitivity based on user setting
-  try {
-    applyCameraSensitivity(settings.getCameraSensitivity?.() || "normal");
-  } catch (_) { }
-
   // Debug markers setup and toggle (F9) for spawn/floor diagnostics
   const debug = createDebugMarkers(scene);
   try {
@@ -265,8 +1030,7 @@ async function startGame(canvas) {
   // Dynamic resolution scaling knobs are handled in the loop module
 
   const { world, materials } = createPhysicsWorld();
-  const keyboardControls = createKeyboardControls(activeLayout);
-  controls = keyboardControls;
+  playerControls = createKeyboardControls({ layout: activeLayout });
   scoreboard = createScoreboard();
   invariant(
     scoreboard &&
@@ -276,7 +1040,7 @@ async function startGame(canvas) {
     "createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard()."
   );
   invariant(
-    controls && typeof controls.setLayout === "function",
+    playerControls && typeof playerControls.setLayout === "function",
     "createKeyboardControls must provide setLayout()."
   );
   scoreboard.updateTelemetry({
@@ -290,23 +1054,25 @@ async function startGame(canvas) {
 
   const resetButton = document.querySelector("[data-reset]");
   let disposeAll = () => { };
-  const gameOverOverlay = createGameOverOverlay(() => {
-    try {
-      disposeAll();
-    } catch (_) { }
-    window.location.reload();
+  const gameOverOverlay = createGameOverOverlay({
+    onRestart: () => {
+      try {
+        disposeAll();
+      } catch (_) { }
+      window.location.reload();
+    },
   });
   invariant(
     gameOverOverlay && typeof gameOverOverlay.show === "function",
     "createGameOverOverlay must provide show()."
   );
 
-  const scooter = createScooter(world, materials.player, assets);
+  const scooter = createScooter({ world, material: materials.player, assets });
   scene.add(scooter.mesh);
   scooter.sync(0);
   setCameraMode(cameraMode);
 
-  const mall = createMall(world, scene, assets, materials);
+  const mall = createMall({ world, scene, assets, materials });
   invariant(
     mall &&
     typeof mall.populate === "function" &&
@@ -815,7 +1581,7 @@ async function startGame(canvas) {
       spawnSelector?.dispose?.();
     } catch (_) { }
     try {
-      controls?.dispose?.();
+      playerControls?.dispose?.();
     } catch (_) { }
     try {
       scoreboard?.dispose?.();
@@ -868,7 +1634,7 @@ async function startGame(canvas) {
   // Hand off to centralized loop controller
   createGameLoop({
     clock,
-    readInput: () => controls.read(),
+    readInput: () => playerControls.read(),
     updatePhysics: (delta, input) => updatePhysics(delta, input),
     updateRunTelemetry,
     syncGraphics,
@@ -879,11 +1645,13 @@ async function startGame(canvas) {
       cameraMode === "orbit" && !isSpawnSelectorActive(),
     alignHorizontalAxis,
   }).start();
-  
+}
 
-  window.addEventListener("keydown", handleKeydown);
-}  try {
-    disposeEnvironment?.();
-  } catch (_) { }
-  ;
+const appCanvas = document.getElementById("app");
+if (appCanvas) {
+  startGame(appCanvas).catch((error) => {
+    console.error("[bootstrap] Failed to start Grand Theft Scooter:", error);
+  });
+} else {
+  console.error('[bootstrap] Missing <canvas id="app"> element.');
 }
