@@ -1,19 +1,34 @@
 import { Clock, Vector3, Raycaster, Box3 } from "three";
 import { Body, Box as CannonBox, Vec3 } from "cannon-es";
 
-import { createEnvironment } from "./core/environment";
-import { createPhysicsWorld, stepPhysics } from "./core/physics";
-import { createScoreboard } from "./hud/scoreboard";
-import { createMall } from "./entities/mall";
-import { createScooter } from "./entities/scooter";
-import { createGameOverOverlay } from "./hud/gameOver";
-import { createKeyboardControls } from "./input/keyboard";
-import { createSettingsManager } from "./input/controlPrompt";
-import { loadMallAssets, loadNpcPacks } from "./core/assets";
-import { assertDefined, invariant } from "./core/assert";
-import { createSpawnSelector } from "./systems/spawnSelector";
-import { createGameLoop } from "./systems/gameLoop";
-import { createDebugMarkers } from "./debug/markers";
+import { createEnvironment } from './core/environment';
+import { createPhysicsWorld, stepPhysics } from './core/physics';
+import { createScoreboard } from './hud/scoreboard';
+import { createMall } from './entities/mall';
+import { createScooter } from './entities/scooter';
+import { createGameOverOverlay } from './hud/gameOver';
+import { createKeyboardControls } from './input/keyboard';
+import { createSettingsManager } from './input/controlPrompt';
+import { loadMallAssets, loadNpcPacks } from './core/assets';
+import { assertDefined, invariant } from './core/assert';
+import { createSpawnSelector } from './systems/spawnSelector';
+import { createGameLoop } from './systems/gameLoop';
+import { createDebugMarkers } from './debug/markers';
+import { audioManager } from './core/audio';
+import { scoringSystem } from './systems/scoring';
+import { getCollisionType } from './constants/collisionTypes';
+import { performanceMonitor } from './debug/performanceMonitor';
+
+// UI Message Templates
+const UI_MESSAGES = {
+  CAMERA_FOLLOW: (controlScheme) => {
+    const schemeLabel = controlScheme === 'arrows' ? 'the arrow keys' : 'WASD';
+    return `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`;
+  },
+  CAMERA_FREE: 'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
+  GAME_READY: 'Ready to roll! Hit the gas and see how much chaos you can cause.',
+  SPAWN_SELECT: 'Click to choose spawn location, or press Enter to confirm current position.',
+};
 
 function updateHudHints(layout) {
   const accelerateEl = document.querySelector("[data-hint-accelerate]");
@@ -41,15 +56,13 @@ function updateHudHints(layout) {
   brakeEl.textContent = "Hold S or ↓ to brake or back up";
 }
 
-async function startGame() {
-  const canvas = document.getElementById("app");
+async function startGame(canvas) {
   assertDefined(canvas, 'Expected to find a canvas with id="app".');
 
-  let controls = null;
   let scoreboard = null;
   let cameraMode = "follow";
   let activeLayout = "wasd";
-  let applyEnvironmentTheme = () => {};
+  let applyEnvironmentTheme = () => { };
   let isGameOver = false;
   let spawnSelector = null;
 
@@ -65,18 +78,29 @@ async function startGame() {
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
     if (isSpawnSelectorActive()) return;
-    const schemeLabel = activeLayout === "arrows" ? "the arrow keys" : "WASD";
-    if (cameraMode === "orbit") {
-      scoreboard.setMessage(
-        "Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.",
-        { duration: 4200 }
-      );
-    } else {
-      scoreboard.setMessage(
-        `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`,
-        { duration: 4200 }
-      );
-    }
+
+    const message = cameraMode === 'orbit'
+      ? UI_MESSAGES.CAMERA_FREE
+      : UI_MESSAGES.CAMERA_FOLLOW(activeLayout);
+
+    scoreboard.setMessage(message, { duration: 4200 });
+  }
+
+  // Camera sensitivity function (defined early so it's available for settings manager)
+  let orbitControls = null; // Will be set after environment creation
+  function applyCameraSensitivity(mode) {
+    if (!orbitControls) return;
+
+    const sensitivityMap = {
+      low: { rotate: 0.3, zoom: 0.5, pan: 0.5 },
+      normal: { rotate: 0.5, zoom: 1.0, pan: 1.0 },
+      high: { rotate: 0.8, zoom: 1.5, pan: 1.5 }
+    };
+
+    const settings = sensitivityMap[mode] || sensitivityMap.normal;
+    orbitControls.rotateSpeed = settings.rotate;
+    orbitControls.zoomSpeed = settings.zoom;
+    orbitControls.panSpeed = settings.pan;
   }
 
   const settings = createSettingsManager({
@@ -97,7 +121,7 @@ async function startGame() {
     onGraphicsChange: (g) => {
       try {
         setShadows?.(!!g?.shadows);
-      } catch (_) {}
+      } catch (_) { }
     },
     onDebugChange: (enabled) => {
       try {
@@ -108,7 +132,7 @@ async function startGame() {
           enabled ? "enabled" : "disabled",
           "(via Settings)"
         );
-      } catch (_) {}
+      } catch (_) { }
     },
   });
 
@@ -123,25 +147,32 @@ async function startGame() {
     setCameraMode,
     updateCamera,
     handleResize,
-    controls: environmentOrbitControls,
+    controls,
     setColorMode,
     setShadowsEnabled,
     dispose: disposeEnvironment,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
+
+  // Set the orbit controls for camera sensitivity
+  orbitControls = controls;
   invariant(
-    renderer && typeof renderer.render === "function",
-    "createEnvironment must supply a renderer with render()."
+    renderer && typeof renderer.render === 'function',
+    'createEnvironment must supply a renderer with render().'
   );
   invariant(
-    scene && typeof scene.add === "function",
-    "createEnvironment must supply a valid scene."
+    scene && typeof scene.add === 'function',
+    'createEnvironment must supply a valid scene.'
   );
   invariant(
-    camera && typeof camera.isCamera === "boolean",
-    "createEnvironment must supply a THREE camera."
+    camera && typeof camera.isCamera === 'boolean',
+    'createEnvironment must supply a THREE camera.'
   );
   // Apply camera sensitivity based on user setting
-  // (function definition moved below after orbitControls is created)
+  try {
+    applyCameraSensitivity(settings.getCameraSensitivity?.() || 'normal');
+  } catch (error) {
+    console.warn('[Camera] Failed to apply camera sensitivity:', error);
+  }
 
   invariant(
     typeof setCameraMode === "function",
@@ -168,7 +199,7 @@ async function startGame() {
   const setShadows = setShadowsEnabled;
   try {
     setShadows?.(!!settings.getShadowsEnabled?.());
-  } catch (_) {}
+  } catch (_) { }
 
   // Camera sensitivity function (moved here after orbitControls is created)
   function applyCameraSensitivity(mode) {
@@ -189,7 +220,7 @@ async function startGame() {
   // Apply camera sensitivity based on user setting
   try {
     applyCameraSensitivity(settings.getCameraSensitivity?.() || "normal");
-  } catch (_) {}
+  } catch (_) { }
 
   // Debug markers setup and toggle (F9) for spawn/floor diagnostics
   const debug = createDebugMarkers(scene);
@@ -206,13 +237,8 @@ async function startGame() {
         window.DEBUG_SPAWN ? "enabled" : "disabled"
       );
     };
-    window.addEventListener("keydown", (ev) => {
-      if (ev.key === "F9") {
-        ev.preventDefault?.();
-        window.toggleDebugMarkers();
-      }
-    });
-  } catch (_) {}
+    // Debug keydown handler will be consolidated with main handler below
+  } catch (_) { }
 
   // Determine mall floor height under a given (x,z) so we can spawn above it
   const floorRaycaster = new Raycaster();
@@ -229,7 +255,7 @@ async function startGame() {
       if (window.DEBUG_SPAWN) {
         try {
           debug.setFloorHit(x, y, z);
-        } catch (_) {}
+        } catch (_) { }
       }
       return y;
     }
@@ -239,13 +265,14 @@ async function startGame() {
   // Dynamic resolution scaling knobs are handled in the loop module
 
   const { world, materials } = createPhysicsWorld();
-  controls = createKeyboardControls(activeLayout);
+  const keyboardControls = createKeyboardControls(activeLayout);
+  controls = keyboardControls;
   scoreboard = createScoreboard();
   invariant(
     scoreboard &&
-      typeof scoreboard.updateTelemetry === "function" &&
-      typeof scoreboard.setMessage === "function" &&
-      typeof scoreboard.toggleDashboard === "function",
+    typeof scoreboard.updateTelemetry === "function" &&
+    typeof scoreboard.setMessage === "function" &&
+    typeof scoreboard.toggleDashboard === "function",
     "createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard()."
   );
   invariant(
@@ -262,11 +289,11 @@ async function startGame() {
   });
 
   const resetButton = document.querySelector("[data-reset]");
-  let disposeAll = () => {};
+  let disposeAll = () => { };
   const gameOverOverlay = createGameOverOverlay(() => {
     try {
       disposeAll();
-    } catch (_) {}
+    } catch (_) { }
     window.location.reload();
   });
   invariant(
@@ -282,9 +309,9 @@ async function startGame() {
   const mall = createMall(world, scene, assets, materials);
   invariant(
     mall &&
-      typeof mall.populate === "function" &&
-      typeof mall.handleCollision === "function" &&
-      typeof mall.findNearestNavigablePoint === "function",
+    typeof mall.populate === "function" &&
+    typeof mall.handleCollision === "function" &&
+    typeof mall.findNearestNavigablePoint === "function",
     "createMall must return an object supporting populate(), handleCollision(), and findNearestNavigablePoint()."
   );
   mall.populate({ mode: assets.mallScene ? "static" : "default" });
@@ -318,7 +345,7 @@ async function startGame() {
             hy: slabHeight / 2,
             hz: halfZ,
           });
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   } catch (e) {
@@ -353,13 +380,33 @@ async function startGame() {
     if (drive === 0) return;
     forwardVector.set(0, 0, -1);
     scooter.body.quaternion.vmult(forwardVector, forwardVector);
-    tmpForce.copy(forwardVector).scale(75 * drive);
+
+    // Enhanced drive force with speed-dependent scaling
+    const currentSpeed = scooter.body.velocity.length();
+    const speedFactor = Math.max(0.3, 1 - (currentSpeed / 30)); // Reduce force at high speeds
+    const driveForce = 90 * drive * speedFactor; // Increased base force
+
+    tmpForce.copy(forwardVector).scale(driveForce);
     scooter.body.applyForce(tmpForce, scooter.body.position);
   }
 
   function applySteering(steer, delta) {
     if (steer === 0) return;
-    scooter.body.angularVelocity.y -= steer * delta * 5;
+
+    // Enhanced steering with speed-dependent responsiveness
+    const currentSpeed = scooter.body.velocity.length();
+    const speedFactor = Math.min(1.5, Math.max(0.5, currentSpeed / 10)); // More responsive at speed
+    const steerForce = steer * delta * 6.5 * speedFactor; // Increased base steering
+
+    scooter.body.angularVelocity.y -= steerForce;
+
+    // Add slight lateral force for more realistic turning
+    if (currentSpeed > 2) {
+      const rightVector = new Vec3();
+      scooter.body.quaternion.vmult(new Vec3(1, 0, 0), rightVector);
+      const lateralForce = rightVector.scale(steer * currentSpeed * 8);
+      scooter.body.applyForce(lateralForce, scooter.body.position);
+    }
   }
 
   const runStats = {
@@ -369,6 +416,31 @@ async function startGame() {
     startTime: performance.now(),
     endTime: null,
   };
+
+  // Initialize audio system
+  let audioInitialized = false;
+  async function initializeAudio() {
+    if (!audioInitialized) {
+      await audioManager.initialize();
+      audioInitialized = true;
+
+      // Setup scoring system callbacks
+      scoringSystem.setCallbacks({
+        onScoreUpdate: (score, points, breakdown) => {
+          scoreboard.updateTelemetry({ score });
+          scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, { duration: 1500 });
+        },
+        onComboUpdate: (combo, increased) => {
+          if (increased && combo >= 3) {
+            scoreboard.setMessage(`${combo}x COMBO!`, { duration: 1200 });
+          }
+        },
+        onSpecialBonus: (message, bonus) => {
+          scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
+        }
+      });
+    }
+  }
   let currentSpeed = 0;
   let npcPacksLoading = false;
 
@@ -432,10 +504,10 @@ async function startGame() {
         // Lock UI so settings cannot be opened/changed during spawn selection
         try {
           document.documentElement.classList.add("ui-locked");
-        } catch (_) {}
+        } catch (_) { }
         try {
           settings.close?.();
-        } catch (_) {}
+        } catch (_) { }
 
         // Let the user orbit/pan/zoom the camera while choosing spawn
         const prevCameraMode = cameraMode;
@@ -457,7 +529,7 @@ async function startGame() {
           if (spawnPreviewFrameId !== null) {
             try {
               document.documentElement.classList.remove("ui-locked");
-            } catch (_) {}
+            } catch (_) { }
 
             cancelAnimationFrame(spawnPreviewFrameId);
             spawnPreviewFrameId = null;
@@ -503,11 +575,11 @@ async function startGame() {
       if (window.DEBUG_SPAWN) {
         try {
           debug.setSpawnMarker(spawnPoint.x, spawnPoint.y, spawnPoint.z);
-        } catch (_) {}
+        } catch (_) { }
       }
       try {
         scooter.body.wakeUp?.();
-      } catch (_) {}
+      } catch (_) { }
       orbitControls.target.copy(scooter.mesh.position);
       orbitControls.update();
       if (cameraMode !== "follow") {
@@ -578,237 +650,240 @@ async function startGame() {
     c: handleCameraModeToggle,
     r: handleResetKey,
     i: handleTelemetryKey,
-    "+": () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) + 1 }),
-    "-": () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) - 1 }),
-    "[": () => mall.setChunking({ size: (mall.chunkSize ?? 48) - 8 }),
-    "]": () => mall.setChunking({ size: (mall.chunkSize ?? 48) + 8 }),
+    '+': () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) + 1 }),
+    '-': () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) - 1 }),
+    '[': () => mall.setChunking({ size: (mall.chunkSize ?? 48) - 8 }),
+    ']': () => mall.setChunking({ size: (mall.chunkSize ?? 48) + 8 }),
+    'F9': (event) => {
+      event.preventDefault?.();
+      try { window.toggleDebugMarkers?.(); } catch (_) { }
+    },
   };
 
   async function handleKeydown(event) {
     const key = event.key;
     const handler = keyHandlers[key.toLowerCase()] || keyHandlers[key];
     if (!handler) return;
-    // Audio initialization state and function
-    let audioInitialized = false;
-    async function initializeAudio() {
-      // Placeholder: Implement actual audio setup here
-      // For now, just mark as initialized
-      audioInitialized = true;
-      // Example: await someAudioLibrary.init();
+    handler(event);
+  }
+
+  function triggerGameOver(reason) {
+    if (isGameOver) return;
+    isGameOver = true;
+    runStats.endTime = performance.now();
+    if (reason) {
+      runStats.hazards += 1;
+    }
+    currentSpeed = 0;
+    scoreboard.updateTelemetry({
+      speed: 0,
+      hazards: runStats.hazards,
+      topSpeed: runStats.topSpeed,
+      hits: runStats.hits,
+      runtime: (runStats.endTime - runStats.startTime) / 1000,
+      status: 'Downed',
+    });
+    gameOverOverlay.show(runStats);
+  }
+
+  const onScooterCollide = (event) => {
+    const hit = mall.handleCollision(event.body, scooter.body);
+    if (!hit || isGameOver) return;
+
+    if (hit.kind === 'fatal') {
+      // Play crash sound
+      audioManager.playCollisionSound(1.0, 'metal');
+      triggerGameOver(hit.label);
+      return;
     }
 
-    // Initialize audio on first user interaction
-    // Add event listeners for audio initialization and keydown handling
-    window.addEventListener("keydown", (event) => {
-      initAudioOnInteraction();
-      handleKeydown(event);
-    });
+    if (hit.kind === 'score') {
+      runStats.hits += 1;
 
-    window.addEventListener("click", initAudioOnInteraction);
-    window.addEventListener("touchstart", initAudioOnInteraction);
+      // Use enhanced scoring system
+      const currentSpeed = scooter.body.velocity.length();
+      const scoreResult = scoringSystem.awardPoints(hit.label, currentSpeed);
 
-    // Add event listeners for audio initialization
-    window.addEventListener("keydown", (event) => {
-      initAudioOnInteraction();
-      handleKeydown(event);
-    });
+      // Play collision sound based on target type (optimized with type flags)
+      const soundType = getCollisionType(hit.label);
+      const intensity = Math.min(1.0, currentSpeed / 15);
+      audioManager.playCollisionSound(intensity, soundType);
 
-    window.addEventListener("click", initAudioOnInteraction);
-    window.addEventListener("touchstart", initAudioOnInteraction);
+      // Monitor performance improvements
+      performanceMonitor.recordCollision(hit.label, {
+        angularDamping: hit.body?.angularDamping || 0,
+        linearDamping: hit.body?.linearDamping || 0
+      });
 
-    function triggerGameOver(reason) {
-      if (isGameOver) return;
-      isGameOver = true;
-      runStats.endTime = performance.now();
-      if (reason) {
-        runStats.hazards += 1;
-      }
-      currentSpeed = 0;
+      // Update scoreboard with new scoring system
       scoreboard.updateTelemetry({
-        speed: 0,
-        hazards: runStats.hazards,
-        topSpeed: runStats.topSpeed,
         hits: runStats.hits,
-        runtime: (runStats.endTime - runStats.startTime) / 1000,
-        status: "Downed",
+        score: scoringSystem.getStats().score
       });
-      scoreboard.setMessage("Game over! Press Try Again to restart.", {
-        duration: 0,
-      });
-      gameOverOverlay.show(
-        reason ? `You crashed into ${reason}.` : "You crashed!"
-      );
-      scooter.body.velocity.set(0, 0, 0);
-      scooter.body.angularVelocity.set(0, 0, 0);
     }
+  };
+  scooter.body.addEventListener('collide', onScooterCollide);
 
-    const onScooterCollide = (event) => {
-      const hit = mall.handleCollision(event.body, scooter.body);
-      if (!hit || isGameOver) return;
-      if (hit.kind === "fatal") {
-        triggerGameOver(hit.label);
-        return;
-      }
-      if (hit.kind === "score") {
-        runStats.hits += 1;
-        scoreboard.award(hit.points, hit.label);
-        scoreboard.updateTelemetry({ hits: runStats.hits });
-      }
-    };
-    scooter.body.addEventListener("collide", onScooterCollide);
+  function updatePhysics(delta, input) {
+    if (!isGameOver && input) {
+      const { drive, steer } = input;
+      applyDriveForce(drive);
+      applySteering(steer, delta);
 
-    function updatePhysics(delta, input) {
-      if (cameraMode === "follow") {
-        const drive = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
-        const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-
-        if (scooter && typeof scooter.setControlsState === "function") {
-          scooter.setControlsState({ drive, steer });
-        }
-
-        applyDriveForce(drive);
-        applySteering(steer, delta);
-      }
-
-      stepPhysics(world, delta);
-      currentSpeed = scooter.body.velocity.length();
-      if (currentSpeed > runStats.topSpeed) {
-        runStats.topSpeed = currentSpeed;
+      // Update engine sound based on throttle and speed
+      if (audioInitialized) {
+        const throttle = Math.abs(drive);
+        audioManager.updateEngineSound(currentSpeed, throttle);
       }
     }
 
-    function syncGraphics(delta) {
-      scooter.sync(delta);
-      // Let mall know where the player is for chunk streaming
-      if (typeof mall.setPlayerLocator === "function") {
-        mall.setPlayerLocator(() => ({
-          x: scooter.body.position.x,
-          z: scooter.body.position.z,
-        }));
-      }
-      mall.sync(delta);
-      updateCamera(scooter.mesh);
+    stepPhysics(world, delta);
+    currentSpeed = scooter.body.velocity.length();
+    if (currentSpeed > runStats.topSpeed) {
+      runStats.topSpeed = currentSpeed;
+    }
 
-      // Kick off lazy NPC pack loading once to improve startup and upgrade future spawns
-      if (!assets.npcPacksReady && !npcPacksLoading) {
-        npcPacksLoading = true;
-        loadNpcPacks()
-          .then(({ animatedMenVariants, animatedWomenVariants }) => {
-            assets.animatedMenVariants = animatedMenVariants;
-            assets.animatedWomenVariants = animatedWomenVariants;
-            assets.npcPacksReady = true;
-            if (scoreboard) {
-              scoreboard.setMessage(
-                "Character packs loaded. Upgrading the mall crowd…",
-                { duration: 4200 }
-              );
-            }
+    // Update scoring system combo timer
+    scoringSystem.updateCombo(performance.now());
+  }
+
+    
+
+  function syncGraphics(delta) {
+    scooter.sync(delta);
+    // Let mall know where the player is for chunk streaming
+    if (typeof mall.setPlayerLocator === "function") {
+      mall.setPlayerLocator(() => ({
+        x: scooter.body.position.x,
+        z: scooter.body.position.z,
+      }));
+    }
+    mall.sync(delta);
+    updateCamera(scooter.mesh);
+
+    // Kick off lazy NPC pack loading once to improve startup and upgrade future spawns
+    if (!assets.npcPacksReady && !npcPacksLoading) {
+      npcPacksLoading = true;
+      loadNpcPacks()
+        .then(({ animatedMenVariants, animatedWomenVariants }) => {
+          assets.animatedMenVariants = animatedMenVariants;
+          assets.animatedWomenVariants = animatedWomenVariants;
+          assets.npcPacksReady = true;
+        })
+        .then(() => {
+          try {
             if (mall && typeof mall.addPatrons === "function") {
               // Add a fresh batch of higher-fidelity NPCs now that packs are ready
               mall.addPatrons(14);
             }
-          })
-          .catch((err) =>
-            console.warn("[assets] Failed to load NPC packs:", err)
-          )
-          .finally(() => {
+          } finally {
             npcPacksLoading = false;
-          });
-      }
-
-      renderer.render(scene, camera);
+          }
+        })
+        .catch((error) => {
+          console.error("[NPC] Failed to load NPC packs:", error);
+          npcPacksLoading = false;
+        });
     }
 
-    // Centralized teardown to ensure listeners and DOM are cleaned up before restart
-    disposeAll = () => {
-      try {
-        window.removeEventListener("keydown", handleKeydown);
-      } catch (_) {}
-      try {
-        window.removeEventListener("resize", handleResize);
-      } catch (_) {}
-      if (resetButton && handleResetButtonClick) {
-        try {
-          resetButton.removeEventListener("click", handleResetButtonClick);
-        } catch (_) {}
-      }
-      if (spawnPreviewFrameId !== null) {
-        try {
-          cancelAnimationFrame(spawnPreviewFrameId);
-        } catch (_) {}
-        spawnPreviewFrameId = null;
-      }
-      try {
-        scooter.body.removeEventListener("collide", onScooterCollide);
-      } catch (_) {}
-      try {
-        spawnSelector?.dispose?.();
-      } catch (_) {}
-      try {
-        controls?.dispose?.();
-      } catch (_) {}
-      try {
-        scoreboard?.dispose?.();
-      } catch (_) {}
-      try {
-        gameOverOverlay?.dispose?.();
-      } catch (_) {}
-      try {
-        orbitControls?.dispose?.();
-      } catch (_) {}
-      try {
-        disposeEnvironment?.();
-      } catch (_) {}
-    };
-
-    // Hide loading overlay only if mall is present; otherwise keep it and show a hint
-    const hasMall = !!scene.getObjectByName("shopping-mall");
-    if (hasMall) {
-      setLoadingVisible(false);
-    } else {
-      setLoadingVisible(true);
-      try {
-        const loadingEl = document.querySelector("[data-loading]");
-        if (loadingEl)
-          loadingEl.textContent =
-            "Mall model not loaded yet… check assets/shopping_mall/scene.gltf";
-        console.warn(
-          "[startup] Mall model missing from scene; leaving loading overlay visible."
-        );
-      } catch (_) {}
-    }
-
-    await resetScooter({ interactive: true });
-    updateRunTelemetry();
-    setTimeout(() => {
-      if (!isGameOver) {
-        refreshCameraMessage();
-      }
-    }, 6500);
-
-    window.addEventListener("resize", handleResize);
-    // Hand off to centralized loop controller
-    createGameLoop({
-      clock,
-      readInput: () => controls.read(),
-      updatePhysics: (delta, input) => updatePhysics(delta, input),
-      updateRunTelemetry,
-      syncGraphics,
-      renderer,
-      camera,
-      orbitControls,
-      isFreeCameraActive: () =>
-        cameraMode === "orbit" && !isSpawnSelectorActive(),
-      alignHorizontalAxis,
-    }).start();
+    renderer.render(scene, camera);
   }
 
-  (async () => {
+  // Centralized teardown to ensure listeners and DOM are cleaned up before restart
+  disposeAll = () => {
     try {
-      await startGame();
-    } catch (error) {
-      console.error("[Grand Theft Scooter] Failed to start game loop:", error);
+      window.removeEventListener("keydown", handleKeydown);
+    } catch (_) { }
+    try {
+      window.removeEventListener("resize", handleResize);
+    } catch (_) { }
+    if (resetButton && handleResetButtonClick) {
+      try {
+        resetButton.removeEventListener("click", handleResetButtonClick);
+      } catch (_) { }
     }
-  })();
+    if (spawnPreviewFrameId !== null) {
+      try {
+        cancelAnimationFrame(spawnPreviewFrameId);
+      } catch (_) { }
+      spawnPreviewFrameId = null;
+    }
+    try {
+      scooter.body.removeEventListener("collide", onScooterCollide);
+    } catch (_) { }
+    try {
+      spawnSelector?.dispose?.();
+    } catch (_) { }
+    try {
+      controls?.dispose?.();
+    } catch (_) { }
+    try {
+      scoreboard?.dispose?.();
+    } catch (_) { }
+    try {
+      gameOverOverlay?.dispose?.();
+    } catch (_) { }
+    try {
+      orbitControls?.dispose?.();
+    } catch (_) { }
+    try {
+      audioManager?.dispose?.();
+    } catch (_) { }
+    try {
+      scoringSystem?.dispose?.();
+    } catch (_) { }
+    try {
+      disposeEnvironment?.();
+    } catch (_) { }
+  };
+
+
+  // Check if mall is loaded and hide loading overlay
+  const mallObj = scene.getObjectByName("shopping-mall");
+  if (mallObj) {
+    setLoadingVisible(false);
+  } else {
+    setLoadingVisible(true);
+    try {
+      const loadingEl = document.querySelector("[data-loading]");
+      if (loadingEl)
+        loadingEl.textContent =
+          "Mall model not loaded yet… check assets/shopping_mall/scene.gltf";
+      console.warn(
+        "[startup] Mall model missing from scene; leaving loading overlay visible."
+      );
+    } catch (_) { }
+  }
+
+  await resetScooter({ interactive: true });
+  updateRunTelemetry();
+  setTimeout(() => {
+    if (!isGameOver) {
+      refreshCameraMessage();
+    }
+  }, 6500);
+
+  window.addEventListener("resize", handleResize);
+  window.addEventListener("keydown", handleKeydown);
+  // Hand off to centralized loop controller
+  createGameLoop({
+    clock,
+    readInput: () => controls.read(),
+    updatePhysics: (delta, input) => updatePhysics(delta, input),
+    updateRunTelemetry,
+    syncGraphics,
+    renderer,
+    camera,
+    orbitControls,
+    isFreeCameraActive: () =>
+      cameraMode === "orbit" && !isSpawnSelectorActive(),
+    alignHorizontalAxis,
+  }).start();
+  
+
+  window.addEventListener("keydown", handleKeydown);
+}  try {
+    disposeEnvironment?.();
+  } catch (_) { }
+  ;
 }
-// end

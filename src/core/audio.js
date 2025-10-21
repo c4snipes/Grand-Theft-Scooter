@@ -352,13 +352,13 @@ export class AudioManager {
       try {
         this.engineOsc1.stop();
         this.engineOsc1.disconnect();
-      } catch (_) {}
+      } catch (_) { }
     }
     if (this.engineOsc2) {
       try {
         this.engineOsc2.stop();
         this.engineOsc2.disconnect();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // Clean up all active nodes

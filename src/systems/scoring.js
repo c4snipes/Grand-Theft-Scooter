@@ -219,8 +219,12 @@ export class ScoringSystem {
     // Special sound for high-value targets
     if (points > 1000) {
       // Play additional celebratory sound
+      if (this._scoreSoundTimeout) {
+        clearTimeout(this._scoreSoundTimeout);
+      }
       this._scoreSoundTimeout = setTimeout(() => {
         audioManager.playScoreSound(points * 0.5);
+        this._scoreSoundTimeout = null;
       }, 200);
     }
   }
@@ -270,10 +274,18 @@ export class ScoringSystem {
 
   // Clean up scoring system resources
   dispose() {
-    // Explicitly remove references from callbacks to prevent memory leaks
-    Object.keys(this.callbacks).forEach(key => {
-      this.callbacks[key] = undefined;
-    });
+    // Clear all callbacks to prevent memory leaks
+    this.callbacks = {
+      onScoreUpdate: null,
+      onComboUpdate: null,
+      onSpecialBonus: null
+    };
+
+    // Clear any pending score sound timeout
+    if (this._scoreSoundTimeout) {
+      clearTimeout(this._scoreSoundTimeout);
+      this._scoreSoundTimeout = null;
+    }
 
     // Reset all scoring data
     this.reset();

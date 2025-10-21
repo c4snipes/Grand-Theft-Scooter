@@ -1,5 +1,4 @@
-import { AnimationMixer, Box3, Group, LoopRepeat, Vector3 } from "three";
-import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { AnimationMixer, Box3, Group, LoopRepeat, Vector3, clone as cloneSkeleton } from "three";
 import { Body, Box as CannonBox, Vec3 } from "cannon-es";
 import { invariant, warnOnce } from "../core/assert";
 import {

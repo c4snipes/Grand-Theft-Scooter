@@ -220,7 +220,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     renderer.shadowMap.enabled = SHADOWS_ENABLED;
     try {
       sun.castShadow = SHADOWS_ENABLED;
-    } catch (_) {}
+    } catch (_) { }
     try {
       // Update all current meshes to reflect new shadow setting
       scene.traverse((child) => {
@@ -229,7 +229,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
           child.receiveShadow = SHADOWS_ENABLED;
         }
       });
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return {
@@ -247,7 +247,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     dispose: () => {
       try {
         controls?.dispose?.();
-      } catch (_) {}
+      } catch (_) { }
       if (removeColorSchemeListener) {
         removeColorSchemeListener();
       }

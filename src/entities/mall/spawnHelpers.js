@@ -1,6 +1,5 @@
 import { Body, Box as CannonBox, Vec3 } from "cannon-es";
 import {
-  AnimationMixer,
   Box3,
   BoxGeometry,
   CircleGeometry,
@@ -13,7 +12,6 @@ import {
   SphereGeometry,
   Vector3,
 } from "three";
-import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getChunkKeyForPosition, InteractableType } from "./streaming";
 
 export const propMaterials = {
