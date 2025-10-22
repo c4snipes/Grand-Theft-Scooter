@@ -1,5 +1,5 @@
-import { Clock, Vector3, Raycaster, Box3 } from "three";
-import { Body, Box as CannonBox, Vec3 } from "cannon-es";
+import { Clock, Vector3, Raycaster, Box3 } from 'three';
+import { Body, Box as CannonBox, Vec3 } from 'cannon-es';
 import {
   createEnvironment,
   createPhysicsWorld,
@@ -13,105 +13,107 @@ import {
   audioManager,
   scoringSystem,
   getCollisionType,
-} from "./coreAndSystems.js";
+} from './coreAndSystems.js';
 import {
   createMall,
   createScooter,
   createDebugMarkers,
   performanceMonitor,
-} from "./entitiesAndDebug.js";
+} from './entitiesAndDebug.js';
 
+const DEFAULT_SCOREBOARD_TAGLINE =
+  'Chase points by bowling over mall patrons riding the new character models, but colliding with security gates, maintenance barriers, cleaning robots, or the mall walls will end the run instantly.';
 
 export function createGameOverOverlay({ onRestart = () => {} } = {}) {
-  const root = document.createElement("div");
+  const root = document.createElement('div');
   Object.assign(root.style, {
-    position: "fixed",
-    inset: "0",
-    background: "rgba(0, 0, 0, 0.6)",
-    display: "none",
-    zIndex: "1000",
-    alignItems: "center",
-    justifyContent: "center",
+    position: 'fixed',
+    inset: '0',
+    background: 'rgba(0, 0, 0, 0.6)',
+    display: 'none',
+    zIndex: '1000',
+    alignItems: 'center',
+    justifyContent: 'center',
   });
   document.body.appendChild(root);
 
-  const panel = document.createElement("div");
+  const panel = document.createElement('div');
   Object.assign(panel.style, {
-    background: "rgba(18, 22, 30, 0.96)",
-    color: "#eef3ff",
-    borderRadius: "14px",
-    padding: "22px 24px",
-    minWidth: "280px",
-    maxWidth: "80vw",
-    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.4)",
-    textAlign: "center",
+    background: 'rgba(18, 22, 30, 0.96)',
+    color: '#eef3ff',
+    borderRadius: '14px',
+    padding: '22px 24px',
+    minWidth: '280px',
+    maxWidth: '80vw',
+    boxShadow: '0 18px 38px rgba(0, 0, 0, 0.4)',
+    textAlign: 'center',
   });
   root.appendChild(panel);
 
-  const title = document.createElement("h2");
-  title.textContent = "Game Over";
-  Object.assign(title.style, { margin: "0 0 8px", fontSize: "20px" });
+  const title = document.createElement('h2');
+  title.textContent = 'Game Over';
+  Object.assign(title.style, { margin: '0 0 8px', fontSize: '20px' });
   panel.appendChild(title);
 
-  const message = document.createElement("p");
-  message.textContent = "";
+  const message = document.createElement('p');
+  message.textContent = '';
   Object.assign(message.style, {
-    margin: "0 0 16px",
-    fontSize: "16px",
-    opacity: "0.9",
+    margin: '0 0 16px',
+    fontSize: '16px',
+    opacity: '0.9',
   });
   panel.appendChild(message);
 
-  const buttons = document.createElement("div");
+  const buttons = document.createElement('div');
   Object.assign(buttons.style, {
-    display: "flex",
-    gap: "12px",
-    justifyContent: "center",
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'center',
   });
   panel.appendChild(buttons);
 
-  const retry = document.createElement("button");
-  retry.type = "button";
-  retry.textContent = "Try Again";
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Try Again';
   Object.assign(retry.style, {
-    padding: "10px 14px",
-    borderRadius: "10px",
-    background: "#4f46e5",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "600",
+    padding: '10px 14px',
+    borderRadius: '10px',
+    background: '#4f46e5',
+    color: '#fff',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: '600',
   });
   buttons.appendChild(retry);
 
-  const close = document.createElement("button");
-  close.type = "button";
-  close.textContent = "Close";
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = 'Close';
   Object.assign(close.style, {
-    padding: "10px 14px",
-    borderRadius: "10px",
-    background: "#111827",
-    color: "#cbd5e1",
-    border: "1px solid #1f2937",
-    cursor: "pointer",
-    fontWeight: "600",
+    padding: '10px 14px',
+    borderRadius: '10px',
+    background: '#111827',
+    color: '#cbd5e1',
+    border: '1px solid #1f2937',
+    cursor: 'pointer',
+    fontWeight: '600',
   });
   buttons.appendChild(close);
 
-  function show(text = "") {
+  function show(text = '') {
     message.textContent = text;
-    root.style.display = "flex";
+    root.style.display = 'flex';
   }
 
   function hide() {
-    root.style.display = "none";
+    root.style.display = 'none';
   }
 
-  retry.addEventListener("click", () => {
+  retry.addEventListener('click', () => {
     hide();
     onRestart();
   });
-  close.addEventListener("click", hide);
+  close.addEventListener('click', hide);
 
   return {
     show,
@@ -128,22 +130,22 @@ const DEFAULT_MESSAGE_DURATION_MS = 3200;
 const HINT_DURATIONS = Object.freeze({ short: 2600, long: 4800 });
 
 function createMetric(list, label, initialValue) {
-  const term = document.createElement("dt");
+  const term = document.createElement('dt');
   term.textContent = label;
   Object.assign(term.style, {
-    margin: "0",
-    fontSize: "14px",
-    fontWeight: "500",
-    opacity: "0.78",
+    margin: '0',
+    fontSize: '14px',
+    fontWeight: '500',
+    opacity: '0.78',
   });
 
-  const value = document.createElement("dd");
+  const value = document.createElement('dd');
   value.textContent = initialValue;
   Object.assign(value.style, {
-    margin: "0",
-    fontSize: "15px",
-    fontFamily: "monospace",
-    textAlign: "right",
+    margin: '0',
+    fontSize: '15px',
+    fontFamily: 'monospace',
+    textAlign: 'right',
   });
 
   list.appendChild(term);
@@ -160,84 +162,97 @@ function formatDuration(seconds) {
   const totalSeconds = Math.max(0, Math.floor(seconds));
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Keep UI lock toggles centralized so every code path flips the same flag.
+function lockUi() {
+  try {
+    document.documentElement.classList.add('ui-locked');
+  } catch (_) {}
+}
+
+function unlockUi() {
+  try {
+    document.documentElement.classList.remove('ui-locked');
+  } catch (_) {}
 }
 
 // --> HUD Scoreboard: now a toggleable telemetry dashboard instead of a permanent box.
 export function createScoreboard() {
-  const root = document.createElement("div");
-  root.id = "hud-layer";
+  const root = document.createElement('div');
+  root.id = 'hud-layer';
   Object.assign(root.style, {
-    position: "fixed",
-    inset: "0",
-    pointerEvents: "none",
-    zIndex: "20",
+    position: 'fixed',
+    inset: '0',
+    pointerEvents: 'none',
+    zIndex: '20',
   });
   document.body.appendChild(root);
 
-  const messageBar = document.createElement("div");
+  const messageBar = document.createElement('div');
   Object.assign(messageBar.style, {
-    position: "absolute",
-    bottom: "28px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    color: "#ffffff",
-    fontFamily: "Arial, sans-serif",
-    fontSize: "18px",
-    textShadow: "0 2px 8px rgba(0, 0, 0, 0.65)",
-    opacity: "0",
-    transition: "opacity 140ms ease-out",
-    maxWidth: "70vw",
-    textAlign: "center",
-    letterSpacing: "0.01em",
-    pointerEvents: "none",
+    position: 'absolute',
+    bottom: '28px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    color: '#ffffff',
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '18px',
+    textShadow: '0 2px 8px rgba(0, 0, 0, 0.65)',
+    opacity: '0',
+    transition: 'opacity 140ms ease-out',
+    maxWidth: '70vw',
+    textAlign: 'center',
+    letterSpacing: '0.01em',
+    pointerEvents: 'none',
   });
   root.appendChild(messageBar);
 
-  const panel = document.createElement("div");
+  const panel = document.createElement('div');
   Object.assign(panel.style, {
-    position: "absolute",
-    top: "64px",
-    right: "42px",
-    minWidth: "240px",
-    padding: "18px 20px",
-    borderRadius: "14px",
-    background: "rgba(10, 16, 24, 0.95)",
-    color: "#eef3ff",
-    boxShadow: "0 18px 38px rgba(0, 0, 0, 0.4)",
-    backdropFilter: "blur(8px)",
-    display: "none",
-    pointerEvents: "auto",
+    position: 'absolute',
+    top: '64px',
+    right: '42px',
+    minWidth: '240px',
+    padding: '18px 20px',
+    borderRadius: '14px',
+    background: 'rgba(10, 16, 24, 0.95)',
+    color: '#eef3ff',
+    boxShadow: '0 18px 38px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(8px)',
+    display: 'none',
+    pointerEvents: 'auto',
   });
   root.appendChild(panel);
 
-  const header = document.createElement("div");
-  header.textContent = "Scooter Telemetry";
+  const header = document.createElement('div');
+  header.textContent = 'Scooter Telemetry';
   Object.assign(header.style, {
-    fontSize: "18px",
-    fontWeight: "600",
-    marginBottom: "12px",
+    fontSize: '18px',
+    fontWeight: '600',
+    marginBottom: '12px',
   });
   panel.appendChild(header);
 
-  const metricsList = document.createElement("dl");
+  const metricsList = document.createElement('dl');
   Object.assign(metricsList.style, {
-    margin: "0",
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    columnGap: "18px",
-    rowGap: "10px",
+    margin: '0',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    columnGap: '18px',
+    rowGap: '10px',
   });
   panel.appendChild(metricsList);
 
   const nodes = {
-    score: createMetric(metricsList, "Score", "0"),
-    speed: createMetric(metricsList, "Speed", "0.0 km/h"),
-    topSpeed: createMetric(metricsList, "Top speed", "0.0 km/h"),
-    targets: createMetric(metricsList, "Targets hit", "0"),
-    hazards: createMetric(metricsList, "Hazard collisions", "0"),
-    runtime: createMetric(metricsList, "Run time", "0:00"),
-    status: createMetric(metricsList, "Status", "Ready"),
+    score: createMetric(metricsList, 'Score', '0'),
+    speed: createMetric(metricsList, 'Speed', '0.0 km/h'),
+    topSpeed: createMetric(metricsList, 'Top speed', '0.0 km/h'),
+    targets: createMetric(metricsList, 'Targets hit', '0'),
+    hazards: createMetric(metricsList, 'Hazard collisions', '0'),
+    runtime: createMetric(metricsList, 'Run time', '0:00'),
+    status: createMetric(metricsList, 'Status', 'Ready'),
   };
 
   const totals = {
@@ -248,7 +263,7 @@ export function createScoreboard() {
     targets: 0,
     hazards: 0,
     runtime: 0,
-    status: "Ready",
+    status: 'Ready',
   };
 
   let messageTimer = null;
@@ -265,7 +280,7 @@ export function createScoreboard() {
   }
 
   function applyDashboardVisibility() {
-    panel.style.display = dashboardVisible ? "block" : "none";
+    panel.style.display = dashboardVisible ? 'block' : 'none';
   }
 
   function clamp(number, min, max) {
@@ -287,50 +302,46 @@ export function createScoreboard() {
       return totals.score;
     },
     updateTelemetry(patch = {}) {
-      if (typeof patch.speed === "number")
-        totals.speed = clamp(patch.speed, 0, 150);
-      if (typeof patch.topSpeed === "number")
-        totals.topSpeed = Math.max(0, patch.topSpeed);
-      if (typeof patch.hits === "number") {
+      if (typeof patch.speed === 'number') totals.speed = clamp(patch.speed, 0, 150);
+      if (typeof patch.topSpeed === 'number') totals.topSpeed = Math.max(0, patch.topSpeed);
+      if (typeof patch.hits === 'number') {
         totals.targets = patch.hits;
       }
-      if (typeof patch.hazards === "number") {
+      if (typeof patch.hazards === 'number') {
         totals.hazards = patch.hazards;
       }
-      if (typeof patch.runtime === "number") {
+      if (typeof patch.runtime === 'number') {
         totals.runtime = patch.runtime;
       }
-      if (typeof patch.status === "string") {
+      if (typeof patch.status === 'string') {
         totals.status = patch.status;
       }
       render();
     },
     setMessage(message, options = {}) {
       const duration =
-        typeof options.duration === "number"
-          ? options.duration
-          : DEFAULT_MESSAGE_DURATION_MS;
+        typeof options.duration === 'number' ? options.duration : DEFAULT_MESSAGE_DURATION_MS;
       if (messageTimer) {
         clearTimeout(messageTimer);
         messageTimer = null;
       }
       if (!message) {
-        messageBar.style.opacity = "0";
-        messageBar.textContent = "";
+        messageBar.style.opacity = '0';
+        messageBar.textContent = '';
         return;
       }
       messageBar.textContent = message;
-      messageBar.style.opacity = "1";
+      messageBar.style.opacity = '1';
       if (Number.isFinite(duration) && duration > 0) {
         messageTimer = setTimeout(() => {
-          messageBar.style.opacity = "0";
-          messageBar.textContent = "";
+          messageBar.style.opacity = '0';
+          messageBar.textContent = '';
           messageTimer = null;
         }, duration);
       }
     },
     clearMessage() {
-      this.setMessage("");
+      this.setMessage('');
     },
     setDashboardVisible(show) {
       dashboardVisible = Boolean(show);
@@ -358,7 +369,7 @@ export function createScoreboard() {
 }
 
 // --> Input Layer: basic keyboard setup so both WASD and arrows work.
-export function createKeyboardControls({ layout = "hybrid" } = {}) {
+export function createKeyboardControls({ layout = 'hybrid' } = {}) {
   const activeKeys = new Set();
   const listeners = [];
 
@@ -503,9 +514,12 @@ function readStoredSettings() {
     return {
       controlScheme: parsed.controlScheme === 'arrows' ? 'arrows' : defaults.controlScheme,
       theme: parsed.theme === 'light' ? 'light' : 'dark',
-      cameraSensitivity: ['low', 'normal', 'high'].includes(parsed.cameraSensitivity) ? parsed.cameraSensitivity : defaults.cameraSensitivity,
+      cameraSensitivity: ['low', 'normal', 'high'].includes(parsed.cameraSensitivity)
+        ? parsed.cameraSensitivity
+        : defaults.cameraSensitivity,
       shadows: typeof parsed.shadows === 'boolean' ? parsed.shadows : defaults.shadows,
-      debugMarkers: typeof parsed.debugMarkers === 'boolean' ? parsed.debugMarkers : defaults.debugMarkers,
+      debugMarkers:
+        typeof parsed.debugMarkers === 'boolean' ? parsed.debugMarkers : defaults.debugMarkers,
     };
   } catch (error) {
     console.warn('[settings] Unable to parse stored settings, falling back to defaults.', error);
@@ -529,7 +543,13 @@ function applyDocumentTheme(theme) {
   document.documentElement.setAttribute('data-theme', mode);
 }
 
-export function createSettingsManager({ onControlSchemeChange, onThemeChange, onCameraSensitivityChange, onGraphicsChange, onDebugChange } = {}) {
+export function createSettingsManager({
+  onControlSchemeChange,
+  onThemeChange,
+  onCameraSensitivityChange,
+  onGraphicsChange,
+  onDebugChange,
+} = {}) {
   if (typeof window === 'undefined') {
     return createUnavailableSettingsManager('Settings unavailable outside a browser context.');
   }
@@ -537,7 +557,9 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
   const root = document.querySelector('[data-settings]');
   if (!root) {
     console.warn('[settings] Settings panel markup missing. Using defaults.');
-    return createUnavailableSettingsManager('Settings panel markup missing. Using defaults.', { initialWarned: true });
+    return createUnavailableSettingsManager('Settings panel markup missing. Using defaults.', {
+      initialWarned: true,
+    });
   }
 
   const controlInputs = Array.from(root.querySelectorAll('[data-control-option]'));
@@ -687,7 +709,6 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
     if (!openState && isUiLocked()) {
       event.preventDefault();
       return;
-
     }
     if (openState) {
       event.preventDefault();
@@ -726,7 +747,6 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
       event.preventDefault();
       close();
     });
-
   });
 
   // Initial sync applies the saved state, then notifies the rest of the app once.
@@ -756,7 +776,8 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
 
   if (shadowsInput) {
     shadowsInput.addEventListener('change', () => {
-      if (!openState || isUiLocked()) { // block background changes while closed/locked
+      if (!openState || isUiLocked()) {
+        // block background changes while closed/locked
         shadowsInput.checked = !!settings.shadows; // snap back UI state
         return;
       }
@@ -804,43 +825,42 @@ export function createSettingsManager({ onControlSchemeChange, onThemeChange, on
   };
 }
 
-
-
 // UI Message Templates
 const UI_MESSAGES = {
   CAMERA_FOLLOW: (controlScheme) => {
     const schemeLabel = controlScheme === 'arrows' ? 'the arrow keys' : 'WASD';
     return `Follow cam active. Use ${schemeLabel} to drive the scooter. Press C for a free camera (mouse only), R to reposition your ride, Esc for settings.`;
   },
-  CAMERA_FREE: 'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
+  CAMERA_FREE:
+    'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
   GAME_READY: 'Ready to roll! Hit the gas and see how much chaos you can cause.',
   SPAWN_SELECT: 'Click to choose spawn location, or press Enter to confirm current position.',
 };
 
 function updateHudHints(layout) {
-  const accelerateEl = document.querySelector("[data-hint-accelerate]");
-  const steerEl = document.querySelector("[data-hint-steer]");
-  const brakeEl = document.querySelector("[data-hint-brake]");
+  const accelerateEl = document.querySelector('[data-hint-accelerate]');
+  const steerEl = document.querySelector('[data-hint-steer]');
+  const brakeEl = document.querySelector('[data-hint-brake]');
 
   if (!accelerateEl || !steerEl || !brakeEl) return;
 
-  if (layout === "arrows") {
-    accelerateEl.textContent = "Tap ↑ to accelerate";
-    steerEl.textContent = "Steer with ← / →";
-    brakeEl.textContent = "Hold ↓ to brake or back up";
+  if (layout === 'arrows') {
+    accelerateEl.textContent = 'Tap ↑ to accelerate';
+    steerEl.textContent = 'Steer with ← / →';
+    brakeEl.textContent = 'Hold ↓ to brake or back up';
     return;
   }
 
-  if (layout === "wasd") {
-    accelerateEl.textContent = "Tap W to accelerate";
-    steerEl.textContent = "Steer with A / D";
-    brakeEl.textContent = "Hold S to brake or back up";
+  if (layout === 'wasd') {
+    accelerateEl.textContent = 'Tap W to accelerate';
+    steerEl.textContent = 'Steer with A / D';
+    brakeEl.textContent = 'Hold S to brake or back up';
     return;
   }
 
-  accelerateEl.textContent = "Tap W or ↑ to accelerate";
-  steerEl.textContent = "Steer with A / D or the arrow keys";
-  brakeEl.textContent = "Hold S or ↓ to brake or back up";
+  accelerateEl.textContent = 'Tap W or ↑ to accelerate';
+  steerEl.textContent = 'Steer with A / D or the arrow keys';
+  brakeEl.textContent = 'Hold S or ↓ to brake or back up';
 }
 
 export async function startGame(canvas) {
@@ -853,16 +873,28 @@ export async function startGame(canvas) {
   };
 
   let scoreboard = null;
-  let cameraMode = "follow";
-  let activeLayout = "wasd";
-  let applyEnvironmentTheme = () => { };
+  let cameraMode = 'follow';
+  let activeLayout = 'wasd';
+  let applyEnvironmentTheme = () => {};
   let isGameOver = false;
   let spawnSelector = null;
   let orbitControls = null;
   let playerControls = null;
 
+  const runStats = {
+    hits: 0,
+    hazards: 0,
+    topSpeed: 0,
+    startTime: performance.now(),
+    endTime: null,
+  };
+  let currentSpeed = 0;
+  // Avoid hammering the DOM by spacing scoreboard refreshes.
+  const TELEMETRY_INTERVAL_MS = 120;
+  let lastTelemetryUpdateMs = 0;
+
   // Small loading overlay is visible by default; hide once assets + scene are ready
-  const loadingEl = document.querySelector("[data-loading]");
+  const loadingEl = document.querySelector('[data-loading]');
   function setLoadingVisible(visible) {
     if (!loadingEl) return;
     loadingEl.hidden = !visible;
@@ -874,18 +906,16 @@ export async function startGame(canvas) {
     if (!scoreboard || isGameOver) return;
     if (isSpawnSelectorActive()) return;
 
-    const message = cameraMode === 'orbit'
-      ? UI_MESSAGES.CAMERA_FREE
-      : UI_MESSAGES.CAMERA_FOLLOW(activeLayout);
+    const message =
+      cameraMode === 'orbit' ? UI_MESSAGES.CAMERA_FREE : UI_MESSAGES.CAMERA_FOLLOW(activeLayout);
 
     scoreboard.setMessage(message, { duration: 4200 });
   }
 
-  const applyCameraSensitivity = (mode = "normal") => {
+  const applyCameraSensitivity = (mode = 'normal') => {
     if (!orbitControls) return;
 
-    const preset =
-      CAMERA_SENSITIVITY_PRESETS[mode] ?? CAMERA_SENSITIVITY_PRESETS.normal;
+    const preset = CAMERA_SENSITIVITY_PRESETS[mode] ?? CAMERA_SENSITIVITY_PRESETS.normal;
     orbitControls.rotateSpeed = preset.rotate;
     orbitControls.zoomSpeed = preset.zoom;
     orbitControls.panSpeed = preset.pan;
@@ -907,18 +937,14 @@ export async function startGame(canvas) {
     onGraphicsChange: (g) => {
       try {
         setShadows?.(!!g?.shadows);
-      } catch (_) { }
+      } catch (_) {}
     },
     onDebugChange: (enabled) => {
       try {
         window.DEBUG_SPAWN = !!enabled;
         debug.setEnabled(!!enabled);
-        console.info(
-          "[debug] markers",
-          enabled ? "enabled" : "disabled",
-          "(via Settings)"
-        );
-      } catch (_) { }
+        console.info('[debug] markers', enabled ? 'enabled' : 'disabled', '(via Settings)');
+      } catch (_) {}
     },
   });
 
@@ -960,32 +986,20 @@ export async function startGame(canvas) {
     console.warn('[Camera] Failed to apply camera sensitivity:', error);
   }
 
+  invariant(typeof setCameraMode === 'function', 'createEnvironment must supply setCameraMode().');
+  invariant(typeof updateCamera === 'function', 'createEnvironment must supply updateCamera().');
+  invariant(typeof handleResize === 'function', 'createEnvironment must supply handleResize().');
   invariant(
-    typeof setCameraMode === "function",
-    "createEnvironment must supply setCameraMode()."
+    orbitControls && typeof orbitControls.update === 'function',
+    'createEnvironment must supply orbit controls with update().'
   );
-  invariant(
-    typeof updateCamera === "function",
-    "createEnvironment must supply updateCamera()."
-  );
-  invariant(
-    typeof handleResize === "function",
-    "createEnvironment must supply handleResize()."
-  );
-  invariant(
-    orbitControls && typeof orbitControls.update === "function",
-    "createEnvironment must supply orbit controls with update()."
-  );
-  invariant(
-    typeof setColorMode === "function",
-    "createEnvironment must supply setColorMode()."
-  );
+  invariant(typeof setColorMode === 'function', 'createEnvironment must supply setColorMode().');
   applyEnvironmentTheme = setColorMode;
   applyEnvironmentTheme(settings.getTheme());
   const setShadows = setShadowsEnabled;
   try {
     setShadows?.(!!settings.getShadowsEnabled?.());
-  } catch (_) { }
+  } catch (_) {}
 
   // Debug markers setup and toggle (F9) for spawn/floor diagnostics
   const debug = createDebugMarkers(scene);
@@ -997,20 +1011,17 @@ export async function startGame(canvas) {
     window.toggleDebugMarkers = () => {
       window.DEBUG_SPAWN = !window.DEBUG_SPAWN;
       debug.setEnabled(window.DEBUG_SPAWN);
-      console.info(
-        "[debug] markers",
-        window.DEBUG_SPAWN ? "enabled" : "disabled"
-      );
+      console.info('[debug] markers', window.DEBUG_SPAWN ? 'enabled' : 'disabled');
     };
     // Debug keydown handler will be consolidated with main handler below
-  } catch (_) { }
+  } catch (_) {}
 
   // Determine mall floor height under a given (x,z) so we can spawn above it
   const floorRaycaster = new Raycaster();
   const floorRayStart = new Vector3();
   const floorRayDir = new Vector3(0, -1, 0);
   function getMallFloorYAt(x, z) {
-    const mallObj = scene.getObjectByName("shopping-mall");
+    const mallObj = scene.getObjectByName('shopping-mall');
     if (!mallObj) return 0;
     floorRayStart.set(x, 1000, z);
     floorRaycaster.set(floorRayStart, floorRayDir);
@@ -1020,7 +1031,7 @@ export async function startGame(canvas) {
       if (window.DEBUG_SPAWN) {
         try {
           debug.setFloorHit(x, y, z);
-        } catch (_) { }
+        } catch (_) {}
       }
       return y;
     }
@@ -1034,14 +1045,15 @@ export async function startGame(canvas) {
   scoreboard = createScoreboard();
   invariant(
     scoreboard &&
-    typeof scoreboard.updateTelemetry === "function" &&
-    typeof scoreboard.setMessage === "function" &&
-    typeof scoreboard.toggleDashboard === "function",
-    "createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard()."
+      typeof scoreboard.updateTelemetry === 'function' &&
+      typeof scoreboard.setMessage === 'function' &&
+      typeof scoreboard.toggleDashboard === 'function',
+    'createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard().'
   );
+  resetRunStats({ showTagline: true });
   invariant(
-    playerControls && typeof playerControls.setLayout === "function",
-    "createKeyboardControls must provide setLayout()."
+    playerControls && typeof playerControls.setLayout === 'function',
+    'createKeyboardControls must provide setLayout().'
   );
   scoreboard.updateTelemetry({
     speed: 0,
@@ -1049,22 +1061,22 @@ export async function startGame(canvas) {
     hits: 0,
     hazards: 0,
     runtime: 0,
-    status: "Ready",
+    status: 'Ready',
   });
 
-  const resetButton = document.querySelector("[data-reset]");
-  let disposeAll = () => { };
+  const resetButton = document.querySelector('[data-reset]');
+  let disposeAll = () => {};
   const gameOverOverlay = createGameOverOverlay({
     onRestart: () => {
       try {
         disposeAll();
-      } catch (_) { }
+      } catch (_) {}
       window.location.reload();
     },
   });
   invariant(
-    gameOverOverlay && typeof gameOverOverlay.show === "function",
-    "createGameOverOverlay must provide show()."
+    gameOverOverlay && typeof gameOverOverlay.show === 'function',
+    'createGameOverOverlay must provide show().'
   );
 
   const scooter = createScooter({ world, material: materials.player, assets });
@@ -1075,47 +1087,57 @@ export async function startGame(canvas) {
   const mall = createMall({ world, scene, assets, materials });
   invariant(
     mall &&
-    typeof mall.populate === "function" &&
-    typeof mall.handleCollision === "function" &&
-    typeof mall.findNearestNavigablePoint === "function",
-    "createMall must return an object supporting populate(), handleCollision(), and findNearestNavigablePoint()."
+      typeof mall.populate === 'function' &&
+      typeof mall.handleCollision === 'function' &&
+      typeof mall.findNearestNavigablePoint === 'function',
+    'createMall must return an object supporting populate(), handleCollision(), and findNearestNavigablePoint().'
   );
-  mall.populate({ mode: assets.mallScene ? "static" : "default" });
+  if (typeof mall.setPlayerLocator === 'function') {
+    // Mall chunk streaming asks for the player position lazily; give it a closure that reads the scooter body.
+    mall.setPlayerLocator(() => ({
+      x: scooter.body.position.x,
+      z: scooter.body.position.z,
+    }));
+  }
+  const mallPopulationMode =
+    assets.mallScene && !assets.mallScene.userData?.isProceduralMall ? 'static' : 'default';
+  mall.populate({ mode: mallPopulationMode });
   updateHudHints(activeLayout);
 
   // Add a large invisible physics floor aligned to the mall's visual floor so the scooter doesn't fall through
   try {
-    const mallObj = scene.getObjectByName("shopping-mall");
+    const mallObj = scene.getObjectByName('shopping-mall');
     if (mallObj) {
       const bounds = new Box3().setFromObject(mallObj);
       const size = bounds.getSize(new Vector3());
       const center = bounds.getCenter(new Vector3());
-      const floorY = getMallFloorYAt(center.x, center.z);
+      const floorYRaw = getMallFloorYAt(center.x, center.z);
+      const floorY = Number.isFinite(floorYRaw) ? floorYRaw : 0;
       const slabHeight = 1.0; // thicker slab to reduce chance of tunneling
       const halfX = Math.max(2, size.x / 2 + 1.0);
       const halfZ = Math.max(2, size.z / 2 + 1.0);
       const floorBody = new Body({
         mass: 0,
         shape: new CannonBox(new Vec3(halfX, slabHeight / 2, halfZ)),
-        position: new Vec3(0, floorY + slabHeight / 2, 0),
+        position: new Vec3(center.x, floorY - slabHeight / 2, center.z),
       });
       if (materials && materials.ground) floorBody.material = materials.ground;
       world.addBody(floorBody);
       if (window.DEBUG_SPAWN) {
         try {
           debug.showFloorSlab({
-            x: 0,
-            y: floorY + slabHeight / 2,
-            z: 0,
+            x: center.x,
+            y: floorY - slabHeight / 2,
+            z: center.z,
             hx: halfX,
             hy: slabHeight / 2,
             hz: halfZ,
           });
-        } catch (_) { }
+        } catch (_) {}
       }
     }
   } catch (e) {
-    console.warn("[physics] Failed to add mall physics floor:", e);
+    console.warn('[physics] Failed to add mall physics floor:', e);
   }
 
   let SCOOTER_SPAWN_HEIGHT = 0.45;
@@ -1124,7 +1146,7 @@ export async function startGame(canvas) {
   // Align spawn height to the actual physics half-height once the scooter is built
   try {
     const halfY = scooter?.body?.shapes?.[0]?.halfExtents?.y;
-    if (typeof halfY === "number" && isFinite(halfY)) {
+    if (typeof halfY === 'number' && isFinite(halfY)) {
       SCOOTER_SPAWN_HEIGHT = Math.max(0.2, halfY + 0.05);
       spawnPoint.y = SCOOTER_SPAWN_HEIGHT;
     }
@@ -1149,7 +1171,7 @@ export async function startGame(canvas) {
 
     // Enhanced drive force with speed-dependent scaling
     const currentSpeed = scooter.body.velocity.length();
-    const speedFactor = Math.max(0.3, 1 - (currentSpeed / 30)); // Reduce force at high speeds
+    const speedFactor = Math.max(0.3, 1 - currentSpeed / 30); // Reduce force at high speeds
     const driveForce = 90 * drive * speedFactor; // Increased base force
 
     tmpForce.copy(forwardVector).scale(driveForce);
@@ -1175,14 +1197,6 @@ export async function startGame(canvas) {
     }
   }
 
-  const runStats = {
-    hits: 0,
-    hazards: 0,
-    topSpeed: 0,
-    startTime: performance.now(),
-    endTime: null,
-  };
-
   // Initialize audio system
   let audioInitialized = false;
   async function initializeAudio() {
@@ -1194,7 +1208,9 @@ export async function startGame(canvas) {
       scoringSystem.setCallbacks({
         onScoreUpdate: (score, points, breakdown) => {
           scoreboard.updateTelemetry({ score });
-          scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, { duration: 1500 });
+          scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, {
+            duration: 1500,
+          });
         },
         onComboUpdate: (combo, increased) => {
           if (increased && combo >= 3) {
@@ -1203,17 +1219,13 @@ export async function startGame(canvas) {
         },
         onSpecialBonus: (message, bonus) => {
           scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
-        }
+        },
       });
     }
   }
-  let currentSpeed = 0;
   let npcPacksLoading = false;
 
   let resetInProgress = false;
-  const scoreboardTagline =
-    "Chase points by bowling over mall patrons riding the new character models, but colliding with security gates, maintenance barriers, cleaning robots, or the mall walls will end the run instantly.";
-
   // Build spawn selector UI module
   spawnSelector = createSpawnSelector({
     selectorCamera: camera,
@@ -1240,9 +1252,11 @@ export async function startGame(canvas) {
     }
   }
 
-  function updateRunTelemetry() {
+  function updateRunTelemetry(force = false) {
     if (!scoreboard) return;
     const now = performance.now();
+    if (!force && now - lastTelemetryUpdateMs < TELEMETRY_INTERVAL_MS) return;
+    lastTelemetryUpdateMs = now;
     const elapsedMs =
       isGameOver && runStats.endTime
         ? runStats.endTime - runStats.startTime
@@ -1253,8 +1267,24 @@ export async function startGame(canvas) {
       hits: runStats.hits,
       hazards: runStats.hazards,
       runtime: elapsedMs / 1000,
-      status: isGameOver ? "Downed" : "Rolling",
+      status: isGameOver ? 'Downed' : 'Rolling',
     });
+  }
+
+  function resetRunStats({ showTagline = false, message } = {}) {
+    runStats.hits = 0;
+    runStats.hazards = 0;
+    runStats.topSpeed = 0;
+    runStats.startTime = performance.now();
+    runStats.endTime = null;
+    currentSpeed = 0;
+    lastTelemetryUpdateMs = 0;
+    updateRunTelemetry(true);
+    const tagline =
+      typeof message === 'string' && message.trim().length > 0 ? message : DEFAULT_SCOREBOARD_TAGLINE;
+    if (showTagline && scoreboard && tagline) {
+      scoreboard.setMessage(tagline, { duration: 6400 });
+    }
   }
 
   async function resetScooter({ interactive = true } = {}) {
@@ -1266,24 +1296,22 @@ export async function startGame(canvas) {
         ignoreBodies: [scooter.body],
       });
 
+      const prevCameraMode = cameraMode;
       if (interactive) {
         // Lock UI so settings cannot be opened/changed during spawn selection
-        try {
-          document.documentElement.classList.add("ui-locked");
-        } catch (_) { }
+        lockUi();
         try {
           settings.close?.();
-        } catch (_) { }
+        } catch (_) {}
 
         // Let the user orbit/pan/zoom the camera while choosing spawn
-        const prevCameraMode = cameraMode;
-        if (prevCameraMode !== "orbit") {
-          cameraMode = "orbit";
+        if (prevCameraMode !== 'orbit') {
+          cameraMode = 'orbit';
           setCameraMode(cameraMode);
         }
 
         scoreboard.setMessage(
-          "Click the floor to deploy your scooter. Press Enter to confirm or Esc to use the suggested spot.",
+          'Click the floor to deploy your scooter. Press Enter to confirm or Esc to use the suggested spot.',
           { duration: 0 }
         );
         spawnPreviewActive = true;
@@ -1292,14 +1320,12 @@ export async function startGame(canvas) {
           target = await spawnSelector.pick(target);
         } finally {
           spawnPreviewActive = false;
-          if (spawnPreviewFrameId !== null) {
-            try {
-              document.documentElement.classList.remove("ui-locked");
-            } catch (_) { }
-
-            cancelAnimationFrame(spawnPreviewFrameId);
-            spawnPreviewFrameId = null;
+          const pendingId = spawnPreviewFrameId;
+          spawnPreviewFrameId = null;
+          if (pendingId !== null) {
+            cancelAnimationFrame(pendingId);
           }
+          unlockUi();
           if (scoreboard) {
             scoreboard.clearMessage();
           }
@@ -1309,21 +1335,16 @@ export async function startGame(canvas) {
       const safe = mall.findNearestNavigablePoint(target, 3.6, {
         ignoreBodies: [scooter.body],
       });
-      const halfY =
-        scooter?.body?.shapes?.[0]?.halfExtents?.y ??
-        SCOOTER_SPAWN_HEIGHT - 0.05;
+      const halfY = scooter?.body?.shapes?.[0]?.halfExtents?.y ?? SCOOTER_SPAWN_HEIGHT - 0.05;
       const floorY = getMallFloorYAt(safe.x, safe.z);
-      const spawnY = Math.max(
-        SCOOTER_SPAWN_HEIGHT,
-        (floorY || 0) + halfY + 0.05
-      );
+      const spawnY = Math.max(SCOOTER_SPAWN_HEIGHT, (floorY || 0) + halfY + 0.05);
       if (window.DEBUG_SPAWN) {
         console.debug(
-          "[spawn] floorY:",
+          '[spawn] floorY:',
           floorY?.toFixed?.(3),
-          "halfY:",
+          'halfY:',
           halfY?.toFixed?.(3),
-          "spawnY:",
+          'spawnY:',
           spawnY?.toFixed?.(3)
         );
       }
@@ -1338,35 +1359,25 @@ export async function startGame(canvas) {
         spawnQuaternion.w
       );
       scooter.sync(0);
+      if (interactive && prevCameraMode !== cameraMode) {
+        cameraMode = prevCameraMode;
+        setCameraMode(cameraMode);
+      }
       if (window.DEBUG_SPAWN) {
         try {
           debug.setSpawnMarker(spawnPoint.x, spawnPoint.y, spawnPoint.z);
-        } catch (_) { }
+        } catch (_) {}
       }
       try {
         scooter.body.wakeUp?.();
-      } catch (_) { }
+      } catch (_) {}
       orbitControls.target.copy(scooter.mesh.position);
       orbitControls.update();
-      if (cameraMode !== "follow") {
-        cameraMode = "follow";
+      if (cameraMode !== 'follow') {
+        cameraMode = 'follow';
         setCameraMode(cameraMode);
       }
-      runStats.hits = 0;
-      runStats.hazards = 0;
-      runStats.topSpeed = 0;
-      runStats.startTime = performance.now();
-      runStats.endTime = null;
-      currentSpeed = 0;
-      scoreboard.updateTelemetry({
-        speed: 0,
-        topSpeed: 0,
-        hits: runStats.hits,
-        hazards: runStats.hazards,
-        runtime: 0,
-        status: "Rolling",
-      });
-      scoreboard.setMessage(scoreboardTagline, { duration: 6400 });
+      resetRunStats({ showTagline: interactive });
     } finally {
       resetInProgress = false;
     }
@@ -1374,7 +1385,7 @@ export async function startGame(canvas) {
 
   function queueReset(options = {}) {
     resetScooter(options).catch((error) => {
-      console.error("[Grand Theft Scooter] Failed to reset scooter:", error);
+      console.error('[Grand Theft Scooter] Failed to reset scooter:', error);
     });
   }
 
@@ -1384,12 +1395,12 @@ export async function startGame(canvas) {
       event.preventDefault();
       queueReset({ interactive: true });
     };
-    resetButton.addEventListener("click", handleResetButtonClick);
+    resetButton.addEventListener('click', handleResetButtonClick);
   }
 
   function handleCameraModeToggle() {
     if (isGameOver || isSpawnSelectorActive()) return;
-    cameraMode = cameraMode === "orbit" ? "follow" : "orbit";
+    cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
     setCameraMode(cameraMode);
     refreshCameraMessage();
   }
@@ -1405,28 +1416,44 @@ export async function startGame(canvas) {
     if (isSpawnSelectorActive()) return;
     const visible = scoreboard.toggleDashboard();
     scoreboard.setMessage(
-      visible
-        ? "Telemetry open. Press I to hide."
-        : "Telemetry hidden. Press I to view stats.",
+      visible ? 'Telemetry open. Press I to hide.' : 'Telemetry hidden. Press I to view stats.',
       { duration: 2600 }
     );
+  }
+
+  function adjustChunking({ radiusDelta = 0, sizeDelta = 0 } = {}) {
+    if (typeof mall.setChunking !== 'function') return;
+    const nextConfig = {};
+    if (radiusDelta !== 0) {
+      const current = typeof mall.chunkRadius === 'number' ? mall.chunkRadius : 2;
+      nextConfig.radius = Math.max(1, current + radiusDelta);
+    }
+    if (sizeDelta !== 0) {
+      const current = typeof mall.chunkSize === 'number' ? mall.chunkSize : 48;
+      nextConfig.size = Math.max(16, current + sizeDelta);
+    }
+    if (Object.keys(nextConfig).length > 0) {
+      mall.setChunking(nextConfig);
+    }
   }
 
   const keyHandlers = {
     c: handleCameraModeToggle,
     r: handleResetKey,
     i: handleTelemetryKey,
-    '+': () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) + 1 }),
-    '-': () => mall.setChunking({ radius: (mall.chunkRadius ?? 2) - 1 }),
-    '[': () => mall.setChunking({ size: (mall.chunkSize ?? 48) - 8 }),
-    ']': () => mall.setChunking({ size: (mall.chunkSize ?? 48) + 8 }),
-    'F9': (event) => {
+    '+': () => adjustChunking({ radiusDelta: 1 }),
+    '-': () => adjustChunking({ radiusDelta: -1 }),
+    '[': () => adjustChunking({ sizeDelta: -8 }),
+    ']': () => adjustChunking({ sizeDelta: 8 }),
+    F9: (event) => {
       event.preventDefault?.();
-      try { window.toggleDebugMarkers?.(); } catch (_) { }
+      try {
+        window.toggleDebugMarkers?.();
+      } catch (_) {}
     },
   };
 
-  async function handleKeydown(event) {
+  async function handleGameKeydown(event) {
     const key = event.key;
     const handler = keyHandlers[key.toLowerCase()] || keyHandlers[key];
     if (!handler) return;
@@ -1441,14 +1468,7 @@ export async function startGame(canvas) {
       runStats.hazards += 1;
     }
     currentSpeed = 0;
-    scoreboard.updateTelemetry({
-      speed: 0,
-      hazards: runStats.hazards,
-      topSpeed: runStats.topSpeed,
-      hits: runStats.hits,
-      runtime: (runStats.endTime - runStats.startTime) / 1000,
-      status: 'Downed',
-    });
+    updateRunTelemetry(true);
     gameOverOverlay.show(runStats);
   }
 
@@ -1478,27 +1498,32 @@ export async function startGame(canvas) {
       // Monitor performance improvements
       performanceMonitor.recordCollision(hit.label, {
         angularDamping: hit.body?.angularDamping || 0,
-        linearDamping: hit.body?.linearDamping || 0
+        linearDamping: hit.body?.linearDamping || 0,
       });
 
       // Update scoreboard with new scoring system
       scoreboard.updateTelemetry({
         hits: runStats.hits,
-        score: scoringSystem.getStats().score
+        score: scoringSystem.getStats().score,
       });
     }
   };
   scooter.body.addEventListener('collide', onScooterCollide);
 
   function updatePhysics(delta, input) {
+    const driveInput = input?.drive ?? 0;
+    const steerInput = input?.steer ?? 0;
+    if (typeof scooter.setControlsState === 'function') {
+      // Keep the fallback visual rig (wheels, handlebars) in sync with whatever the player or AI is doing.
+      scooter.setControlsState({ drive: driveInput, steer: steerInput });
+    }
     if (!isGameOver && input) {
-      const { drive, steer } = input;
-      applyDriveForce(drive);
-      applySteering(steer, delta);
+      applyDriveForce(driveInput);
+      applySteering(steerInput, delta);
 
       // Update engine sound based on throttle and speed
       if (audioInitialized) {
-        const throttle = Math.abs(drive);
+        const throttle = Math.abs(driveInput);
         audioManager.updateEngineSound(currentSpeed, throttle);
       }
     }
@@ -1510,20 +1535,12 @@ export async function startGame(canvas) {
     }
 
     // Update scoring system combo timer
-    scoringSystem.updateCombo(performance.now());
+    const comboTimestamp = performance.now();
+    scoringSystem.updateCombo(comboTimestamp);
   }
-
-    
 
   function syncGraphics(delta) {
     scooter.sync(delta);
-    // Let mall know where the player is for chunk streaming
-    if (typeof mall.setPlayerLocator === "function") {
-      mall.setPlayerLocator(() => ({
-        x: scooter.body.position.x,
-        z: scooter.body.position.z,
-      }));
-    }
     mall.sync(delta);
     updateCamera(scooter.mesh);
 
@@ -1538,7 +1555,7 @@ export async function startGame(canvas) {
         })
         .then(() => {
           try {
-            if (mall && typeof mall.addPatrons === "function") {
+            if (mall && typeof mall.addPatrons === 'function') {
               // Add a fresh batch of higher-fidelity NPCs now that packs are ready
               mall.addPatrons(14);
             }
@@ -1547,7 +1564,7 @@ export async function startGame(canvas) {
           }
         })
         .catch((error) => {
-          console.error("[NPC] Failed to load NPC packs:", error);
+          console.error('[NPC] Failed to load NPC packs:', error);
           npcPacksLoading = false;
         });
     }
@@ -1558,79 +1575,78 @@ export async function startGame(canvas) {
   // Centralized teardown to ensure listeners and DOM are cleaned up before restart
   disposeAll = () => {
     try {
-      window.removeEventListener("keydown", handleKeydown);
-    } catch (_) { }
+      window.removeEventListener('keydown', handleGameKeydown);
+    } catch (_) {}
     try {
-      window.removeEventListener("resize", handleResize);
-    } catch (_) { }
+      window.removeEventListener('resize', handleResize);
+    } catch (_) {}
     if (resetButton && handleResetButtonClick) {
       try {
-        resetButton.removeEventListener("click", handleResetButtonClick);
-      } catch (_) { }
+        resetButton.removeEventListener('click', handleResetButtonClick);
+      } catch (_) {}
     }
     if (spawnPreviewFrameId !== null) {
-      try {
-        cancelAnimationFrame(spawnPreviewFrameId);
-      } catch (_) { }
+      cancelAnimationFrame(spawnPreviewFrameId);
       spawnPreviewFrameId = null;
     }
+    unlockUi();
     try {
-      scooter.body.removeEventListener("collide", onScooterCollide);
-    } catch (_) { }
+      scooter.body.removeEventListener('collide', onScooterCollide);
+    } catch (_) {}
     try {
       spawnSelector?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       playerControls?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       scoreboard?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       gameOverOverlay?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       orbitControls?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       audioManager?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
     try {
       scoringSystem?.dispose?.();
-    } catch (_) { }
+    } catch (_) {}
+    // During cleanup, setPlayerLocator(null) clears the player locator reference to help prevent memory leaks.
+    try {
+      mall.setPlayerLocator?.(null);
+    } catch (_) {}
     try {
       disposeEnvironment?.();
-    } catch (_) { }
+    } catch (_) {}
   };
 
-
   // Check if mall is loaded and hide loading overlay
-  const mallObj = scene.getObjectByName("shopping-mall");
+  const mallObj = scene.getObjectByName('shopping-mall');
   if (mallObj) {
     setLoadingVisible(false);
   } else {
     setLoadingVisible(true);
     try {
-      const loadingEl = document.querySelector("[data-loading]");
+      const loadingEl = document.querySelector('[data-loading]');
       if (loadingEl)
-        loadingEl.textContent =
-          "Mall model not loaded yet… check assets/shopping_mall/scene.gltf";
-      console.warn(
-        "[startup] Mall model missing from scene; leaving loading overlay visible."
-      );
-    } catch (_) { }
+        loadingEl.textContent = 'Mall scene not built yet… check src/proceduralMallScene.js';
+      console.warn('[startup] Mall model missing from scene; leaving loading overlay visible.');
+    } catch (_) {}
   }
 
   await resetScooter({ interactive: true });
-  updateRunTelemetry();
+  updateRunTelemetry(true);
   setTimeout(() => {
     if (!isGameOver) {
       refreshCameraMessage();
     }
   }, 6500);
 
-  window.addEventListener("resize", handleResize);
-  window.addEventListener("keydown", handleKeydown);
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('keydown', handleGameKeydown);
   // Hand off to centralized loop controller
   createGameLoop({
     clock,
@@ -1641,16 +1657,15 @@ export async function startGame(canvas) {
     renderer,
     camera,
     orbitControls,
-    isFreeCameraActive: () =>
-      cameraMode === "orbit" && !isSpawnSelectorActive(),
+    isFreeCameraActive: () => cameraMode === 'orbit' && !isSpawnSelectorActive(),
     alignHorizontalAxis,
   }).start();
 }
 
-const appCanvas = document.getElementById("app");
+const appCanvas = document.getElementById('app');
 if (appCanvas) {
   startGame(appCanvas).catch((error) => {
-    console.error("[bootstrap] Failed to start Grand Theft Scooter:", error);
+    console.error('[bootstrap] Failed to start Grand Theft Scooter:', error);
   });
 } else {
   console.error('[bootstrap] Missing <canvas id="app"> element.');

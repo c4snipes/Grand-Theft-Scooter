@@ -107,7 +107,8 @@ function Get-NodeMajorVersion {
         if ($version -match '^v(\d+)\.') {
             return [int]$Matches[1]
         }
-    } catch {
+    }
+    catch {
         return $null
     }
     return $null
@@ -123,7 +124,8 @@ function Install-NodeViaWinget {
         # Refresh PATH
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
         return $true
-    } catch {
+    }
+    catch {
         Write-Warning "winget installation failed: $_"
         return $false
     }
@@ -136,7 +138,8 @@ function Install-NodeViaChocolatey {
         # Refresh PATH
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
         return $true
-    } catch {
+    }
+    catch {
         Write-Warning "Chocolatey installation failed: $_"
         return $false
     }
@@ -160,7 +163,8 @@ function Ensure-Node {
     
     if ($null -ne $major) {
         Write-Warning "Node.js $(node -v) is below required version $MIN_NODE_MAJOR."
-    } else {
+    }
+    else {
         Write-Log "Node.js not found."
     }
 
@@ -207,7 +211,8 @@ function Install-ProjectDependencies {
     if (Test-Path "package-lock.json") {
         Write-Log "Installing npm dependencies with npm ci..."
         npm ci
-    } else {
+    }
+    else {
         Write-Log "Installing npm dependencies with npm install..."
         npm install
     }
@@ -246,7 +251,8 @@ function Test-Assets {
             Exit-WithError "Asset verification failed. Please ensure all required assets are present."
         }
         Write-Log "Asset verification passed."
-    } catch {
+    }
+    catch {
         Exit-WithError "Asset verification failed: $_"
     }
 }
@@ -280,7 +286,8 @@ function Build-GltfImage {
         if ($LASTEXITCODE -eq 0) {
             return $true
         }
-    } catch {
+    }
+    catch {
         # Image doesn't exist, build it
     }
 
@@ -288,7 +295,8 @@ function Build-GltfImage {
     try {
         docker build -t $GLTF_IMAGE_TAG $dockerContext
         return $true
-    } catch {
+    }
+    catch {
         Write-Warning "Failed to build Docker image: $_"
         return $false
     }
@@ -304,7 +312,8 @@ function Invoke-GltfCli {
             $repoPath = $repoPath -replace '^([A-Z]):', { "/$($_.Groups[1].Value.ToLower())" }
         }
         docker run --rm -v "${repoPath}:/workspace" $GLTF_IMAGE_TAG $Arguments
-    } else {
+    }
+    else {
         gltf-transform $Arguments
     }
 }
@@ -363,11 +372,13 @@ function Optimize-Assets {
             if ($LASTEXITCODE -eq 0) {
                 Move-Item -Path (Join-Path $RepoRoot $tmpPath) -Destination $file.FullName -Force
                 $optimized++
-            } else {
+            }
+            else {
                 Write-Warning "Failed to optimize $relPath"
                 Remove-Item -Path (Join-Path $RepoRoot $tmpPath) -ErrorAction SilentlyContinue
             }
-        } catch {
+        }
+        catch {
             Write-Warning "Failed to optimize $relPath : $_"
             Remove-Item -Path (Join-Path $RepoRoot $tmpPath) -ErrorAction SilentlyContinue
         }

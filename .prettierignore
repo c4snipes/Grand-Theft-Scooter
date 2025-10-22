@@ -1,0 +1,23 @@
+# Ignore artifacts
+node_modules
+dist
+build
+coverage
+.DS_Store
+.env
+.env.*
+.vscode
+/.git
+
+# Ignore images and large binary assets
+public/assets/**
+
+# Ignore Docker and CI artifacts
+docker-compose.*.yml
+*.log
+
+# Ignore lockfiles (if you prefer not to format them)
+package-lock.json
+pnpm-lock.yaml
+
+# essentially a placeholder - add more as needed

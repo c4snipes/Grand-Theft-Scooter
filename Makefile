@@ -112,11 +112,11 @@ preview:
 
 docker-build:
 	@$(MAKE) docker-check
-	docker build -f .Dockerfile -t $(IMAGE) .
+	docker build -f docker/Dockerfile -t $(IMAGE) .
 
 docker-build-gltf:
 	@$(MAKE) docker-check
-	docker build -f .gltf-transform.Dockerfile -t $(GLTF_IMAGE) .
+	docker build -f $(GLTF_DOCKERFILE) -t $(GLTF_IMAGE) .
 
 docker-check:
 	@echo "Checking Docker daemon..."

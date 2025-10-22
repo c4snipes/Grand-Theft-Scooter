@@ -5,7 +5,7 @@ node_modules
 dist
 build
 .output
-.codacy
+*.codacy
 *.codebuddy
 # AudioCache can be rebuilt from sources
 AudioCache/

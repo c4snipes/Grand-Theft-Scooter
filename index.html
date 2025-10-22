@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <!-- head -> metadata & global stylesheets -->
@@ -12,7 +12,8 @@
   <body>
     <!-- body -> noscript (fallback messaging) -->
     <noscript>
-      This experience requires JavaScript to run the 3D mall chaos. Please enable it and reload.
+      This experience requires JavaScript to run the 3D mall chaos. Please
+      enable it and reload.
     </noscript>
 
     <!-- body -> canvas#app (Three.js render surface) -->
@@ -32,65 +33,122 @@
         </p>
         <!-- hud__panel -> div.hud__controls (input hints) -->
         <div class="hud__controls" data-controls>
-          <span data-hint-accelerate>Tap <strong>W</strong> or <strong>↑</strong> to accelerate</span>
-          <span data-hint-steer>Steer with <strong>A / D</strong> or the arrow keys</span>
-          <span data-hint-brake>Hold <strong>S</strong> or <strong>↓</strong> to brake or reverse</span>
+          <span data-hint-accelerate
+            >Tap <strong>W</strong> or <strong>↑</strong> to accelerate</span
+          >
+          <span data-hint-steer
+            >Steer with <strong>A / D</strong> or the arrow keys</span
+          >
+          <span data-hint-brake
+            >Hold <strong>S</strong> or <strong>↓</strong> to brake or
+            reverse</span
+          >
         </div>
         <p class="hud__hazard">
-          Chase points by bowling over mall patrons riding the new character models, but colliding with
-          <strong>security gates</strong>, <strong>maintenance barriers</strong>, cleaning robots, or the mall walls will end the run instantly.
+          Chase points by bowling over mall patrons riding the new character
+          models, but colliding with
+          <strong>security gates</strong>,
+          <strong>maintenance barriers</strong>, cleaning robots, or the mall
+          walls will end the run instantly.
         </p>
       </section>
       <!-- hud -> footer.hud__footer (actions + alerts) -->
       <footer class="hud__footer">
-        <button class="hud__btn" type="button" data-reset>Reset Scooter (R)</button>
+        <button class="hud__btn" type="button" data-reset>
+          Reset Scooter (R)
+        </button>
         <span class="hud__alert" data-alert aria-live="assertive"></span>
       </footer>
     </div>
 
     <div class="settings" data-settings hidden>
       <div class="settings__backdrop" data-settings-close></div>
-      <div class="settings__panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div
+        class="settings__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+      >
         <header class="settings__header">
           <h2 class="settings__title" id="settings-title">Settings</h2>
-          <button class="settings__close" type="button" aria-label="Close settings" data-settings-close>
+          <button
+            class="settings__close"
+            type="button"
+            aria-label="Close settings"
+            data-settings-close
+          >
             ×
           </button>
         </header>
         <div class="settings__section">
           <p class="settings__section-title">Control Scheme</p>
           <label class="settings__option">
-            <input type="radio" name="control-scheme" value="wasd" data-control-option />
+            <input
+              type="radio"
+              name="control-scheme"
+              value="wasd"
+              data-control-option
+            />
             <span>WASD</span>
           </label>
           <label class="settings__option">
-            <input type="radio" name="control-scheme" value="arrows" data-control-option />
+            <input
+              type="radio"
+              name="control-scheme"
+              value="arrows"
+              data-control-option
+            />
             <span>Arrow Keys</span>
           </label>
         </div>
         <div class="settings__section">
           <p class="settings__section-title">Color Mode</p>
           <label class="settings__option">
-            <input type="radio" name="color-mode" value="dark" data-theme-option />
+            <input
+              type="radio"
+              name="color-mode"
+              value="dark"
+              data-theme-option
+            />
             <span>Dark</span>
           </label>
           <label class="settings__option">
-            <input type="radio" name="color-mode" value="light" data-theme-option />
+            <input
+              type="radio"
+              name="color-mode"
+              value="light"
+              data-theme-option
+            />
             <span>Light</span>
           </label>
         </div>
         <div class="settings__section">
           <p class="settings__section-title">Camera Sensitivity</p>
           <label class="settings__option">
-            <input type="radio" name="camera-sensitivity" value="low" data-sensitivity-option />
+            <input
+              type="radio"
+              name="camera-sensitivity"
+              value="low"
+              data-sensitivity-option
+            />
             <span>Low</span>
           </label>
           <label class="settings__option">
-            <input type="radio" name="camera-sensitivity" value="normal" data-sensitivity-option />
+            <input
+              type="radio"
+              name="camera-sensitivity"
+              value="normal"
+              data-sensitivity-option
+            />
             <span>Normal</span>
           </label>
           <label class="settings__option">
-            <input type="radio" name="camera-sensitivity" value="high" data-sensitivity-option />
+            <input
+              type="radio"
+              name="camera-sensitivity"
+              value="high"
+              data-sensitivity-option
+            />
             <span>High</span>
           </label>
         </div>
@@ -105,7 +163,11 @@
         <div class="settings__section">
           <p class="settings__section-title">Debug</p>
           <label class="settings__option">
-            <input type="checkbox" name="debug-markers" data-debug-markers-option />
+            <input
+              type="checkbox"
+              name="debug-markers"
+              data-debug-markers-option
+            />
             <span>Show Debug Markers (spawn, floor, slab)</span>
           </label>
         </div>

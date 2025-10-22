@@ -519,11 +519,11 @@
       ]
     },
     {
-      "name": "Body_texture_pbr_v128_002_Merged0_LOD0_Bake_0",
+      "name": "Handlebar_Body_texture_pbr_v128_002_Merged0_LOD0_Bake_0",
       "rotation": [
         0.0032101639591785225,
         0.9999948474104008,
-        -6.717907306840726e-8,
+        -6.717907306840726e-08,
         -2.1565694866873942e-10
       ],
       "scale": [
@@ -534,7 +534,7 @@
       "mesh": 0
     },
     {
-      "name": "Wheel FL",
+      "name": "Wheel FL Fork",
       "rotation": [
         0.7071068286895752,
         0,

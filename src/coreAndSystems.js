@@ -19,10 +19,10 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
-} from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+} from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   Body,
   ContactMaterial,
@@ -31,7 +31,8 @@ import {
   SAPBroadphase,
   Vec3,
   World,
-} from "cannon-es";
+} from 'cannon-es';
+import { buildProceduralMallScene } from './proceduralMallScene.js';
 
 // -----------------------------------------------------------------------------
 // Assertions and guards
@@ -41,9 +42,9 @@ const WARNED_MESSAGES = new Set();
 
 function buildDetails(context) {
   if (!context) {
-    return "";
+    return '';
   }
-  if (typeof context === "string") {
+  if (typeof context === 'string') {
     return ` ${context}`;
   }
   try {
@@ -56,7 +57,7 @@ function buildDetails(context) {
 export function invariant(condition, message, context) {
   if (condition) return;
   const error = new Error(`${message}${buildDetails(context)}`);
-  error.name = "InvariantViolation";
+  error.name = 'InvariantViolation';
   throw error;
 }
 
@@ -69,7 +70,7 @@ export function warnOnce(key, message, context) {
   const identifier = key ?? message;
   if (WARNED_MESSAGES.has(identifier)) return;
   WARNED_MESSAGES.add(identifier);
-  if (typeof console !== "undefined" && typeof console.warn === "function") {
+  if (typeof console !== 'undefined' && typeof console.warn === 'function') {
     if (context !== undefined) {
       console.warn(message, context);
     } else {
@@ -78,7 +79,7 @@ export function warnOnce(key, message, context) {
   }
 }
 
-export function noop() { }
+export function noop() {}
 
 // -----------------------------------------------------------------------------
 // Asset loading utilities
@@ -87,8 +88,8 @@ export function noop() { }
 const textureLoader = new TextureLoader();
 const gltfLoader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
-dracoLoader.setCrossOrigin("anonymous");
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+dracoLoader.setCrossOrigin('anonymous');
 dracoLoader.preload();
 gltfLoader.setDRACOLoader(dracoLoader);
 
@@ -96,7 +97,7 @@ async function safeLoad(label, loaderFn) {
   try {
     return await loaderFn();
   } catch (error) {
-    const hintedSrc = error?.target?.src ?? error?.path?.[0]?.src ?? "unknown-src";
+    const hintedSrc = error?.target?.src ?? error?.path?.[0]?.src ?? 'unknown-src';
     console.warn(`[assets] Failed to load ${label} (${hintedSrc}):`, error);
     return null;
   }
@@ -108,30 +109,34 @@ function isAbsoluteUrl(path) {
 
 function getBaseUrl() {
   const rawBase =
-    typeof import.meta !== "undefined" &&
+    typeof import.meta !== 'undefined' &&
     import.meta.env &&
-    typeof import.meta.env.BASE_URL === "string"
+    typeof import.meta.env.BASE_URL === 'string'
       ? import.meta.env.BASE_URL
-      : "/";
+      : '/';
   return rawBase;
 }
 
 function normalizeBasePath(base) {
-  const normalized = base.endsWith("/") ? base : `${base}/`;
-  return normalized.startsWith("/") ? normalized : `/${normalized}`;
+  if (!base) return '/';
+  if (isAbsoluteUrl(base)) {
+    return base.endsWith('/') ? base : `${base}/`;
+  }
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
 }
 
 function encodePath(path) {
-  const trimmed = path.startsWith("/") ? path.slice(1) : path;
+  const trimmed = path.startsWith('/') ? path.slice(1) : path;
   return trimmed
-    .split("/")
+    .split('/')
     .filter((segment) => segment.length > 0)
     .map((segment) => encodeURIComponent(segment))
-    .join("/");
+    .join('/');
 }
 
 function resolveAssetPath(inputPath) {
-  if (!inputPath) return "";
+  if (!inputPath) return '';
   if (isAbsoluteUrl(inputPath)) return inputPath;
   const base = normalizeBasePath(getBaseUrl());
   const encoded = encodePath(inputPath);
@@ -140,8 +145,8 @@ function resolveAssetPath(inputPath) {
 
 function toFriendlyLabel(fileName) {
   return fileName
-    .replace(/\.(glb|gltf)$/i, "")
-    .replace(/[-_]+/g, " ")
+    .replace(/\.(glb|gltf)$/i, '')
+    .replace(/[-_]+/g, ' ')
     .replace(/\b([a-z])/g, (_, char) => char.toUpperCase())
     .trim();
 }
@@ -169,45 +174,38 @@ export async function loadMallAssets() {
     columnGltf,
     bannerGltf,
     bannerTexture,
-    mallSceneGltf,
     scooterGltf,
-    riderGltf,
     characterBaseGltf,
   ] = await Promise.all([
-    safeLoad("mall kiosk model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/mall_kiosk.gltf"))
+    safeLoad('mall kiosk model', () =>
+      gltfLoader.loadAsync(resolveAssetPath('assets/mall_kiosk.gltf'))
     ),
-    safeLoad("column model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/mall_column.gltf"))
+    safeLoad('column model', () =>
+      gltfLoader.loadAsync(resolveAssetPath('assets/mall_column.gltf'))
     ),
-    safeLoad("banner model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/mall_banner.gltf"))
+    safeLoad('banner model', () =>
+      gltfLoader.loadAsync(resolveAssetPath('assets/mall_banner.gltf'))
     ),
-    safeLoad("banner texture", () =>
-      textureLoader.loadAsync(resolveAssetPath("assets/mall_banner.png"))
+    safeLoad('banner texture', () =>
+      textureLoader.loadAsync(resolveAssetPath('assets/mall_banner.png'))
     ),
-    safeLoad("shopping mall model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/shopping_mall/scene.gltf"))
+    safeLoad('mobility scooter model', () =>
+      gltfLoader.loadAsync(resolveAssetPath('assets/mobility_scooter_animated/scene.gltf'))
     ),
-    safeLoad("mobility scooter model", () =>
-      gltfLoader.loadAsync(
-        resolveAssetPath("assets/mobility_scooter_animated/scene.gltf")
-      )
-    ),
-    safeLoad("evil old lady model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/evil_old_lady/scene.gltf"))
-    ),
-    safeLoad("base npc model", () =>
-      gltfLoader.loadAsync(resolveAssetPath("assets/Character Base.gltf"))
+    safeLoad('base npc model', () =>
+      gltfLoader.loadAsync(resolveAssetPath('assets/Character Base.gltf'))
     ),
   ]);
 
   const kioskScene = kioskGltf ? kioskGltf.scene : null;
   const columnScene = columnGltf ? columnGltf.scene : null;
   const bannerScene = bannerGltf ? bannerGltf.scene : null;
-  const mallScene = mallSceneGltf ? mallSceneGltf.scene : null;
+  const mallScene = buildProceduralMallScene();
+  if (mallScene) {
+    mallScene.userData = mallScene.userData ?? {};
+    mallScene.userData.isProceduralMall = true;
+  }
   const scooterScene = scooterGltf ? scooterGltf.scene : null;
-  const riderScene = riderGltf ? riderGltf.scene : null;
   const characterBaseScene = characterBaseGltf ? characterBaseGltf.scene : null;
 
   const animatedMenVariants = [];
@@ -228,12 +226,8 @@ export async function loadMallAssets() {
     mallScene,
     scooterScene,
     scooterAnimations: scooterGltf ? scooterGltf.animations ?? [] : [],
-    riderScene,
-    riderAnimations: riderGltf ? riderGltf.animations ?? [] : [],
     characterBaseScene,
-    characterBaseAnimations: characterBaseGltf
-      ? characterBaseGltf.animations ?? []
-      : [],
+    characterBaseAnimations: characterBaseGltf ? characterBaseGltf.animations ?? [] : [],
     animatedMenVariants,
     animatedWomenVariants,
     collisionOnlyMall: false,
@@ -250,26 +244,27 @@ export async function loadMallAssets() {
 }
 
 export async function loadNpcPacks() {
-  const menNpcGltfs = await loadNpcPack(
-    "animated men npc",
-    "assets/Animated Men Pack-glb",
-    ["Man.gltf", "Man in Suit.gltf", "Man in Long Sleeves.gltf", "Man-fjHyMd5Wxw.gltf"]
-  );
+  const menNpcGltfs = await loadNpcPack('animated men npc', 'assets/Animated Men Pack-glb', [
+    'Man.gltf',
+    'Man in Suit.gltf',
+    'Man in Long Sleeves.gltf',
+    'Man-fjHyMd5Wxw.gltf',
+  ]);
 
   const womenNpcGltfs = await loadNpcPack(
-    "animated women npc",
-    "assets/Ultimate Modular Women Pack-glb",
+    'animated women npc',
+    'assets/Ultimate Modular Women Pack-glb',
     [
-      "Animated Woman.gltf",
-      "Animated Woman-nIItLV9nxS.gltf",
-      "Adventurer.gltf",
-      "Medieval.gltf",
-      "Punk.gltf",
-      "Sci Fi Character.gltf",
-      "Soldier.gltf",
-      "Suit.gltf",
-      "Witch.gltf",
-      "Worker.gltf",
+      'Animated Woman.gltf',
+      'Animated Woman-nIItLV9nxS.gltf',
+      'Adventurer.gltf',
+      'Medieval.gltf',
+      'Punk.gltf',
+      'Sci Fi Character.gltf',
+      'Soldier.gltf',
+      'Suit.gltf',
+      'Witch.gltf',
+      'Worker.gltf',
     ]
   );
 
@@ -288,17 +283,14 @@ export function createPhysicsWorld() {
   world.allowSleep = true;
   world.broadphase = new SAPBroadphase(world);
   if (world.solver) {
-    world.solver.iterations = Math.min(
-      10,
-      Math.max(5, (world.solver.iterations ?? 10) - 3)
-    );
+    world.solver.iterations = Math.min(10, Math.max(5, (world.solver.iterations ?? 10) - 3));
     world.solver.tolerance = 0.001;
   }
 
   const materials = {
-    ground: new Material("ground"),
-    dynamic: new Material("dynamic"),
-    player: new Material("player"),
+    ground: new Material('ground'),
+    dynamic: new Material('dynamic'),
+    player: new Material('player'),
   };
 
   world.defaultContactMaterial.friction = 0.45;
@@ -352,19 +344,14 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   renderer.shadowMap.enabled = shadowsEnabled;
 
   const scene = new Scene();
-  scene.background = new Color("#dfe6ef");
+  scene.background = new Color('#dfe6ef');
 
-  const camera = new PerspectiveCamera(
-    45,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    2000
-  );
+  const camera = new PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
   camera.position.set(50, 28, 50);
   scene.add(camera);
 
-  renderer.domElement.style.cursor = "grab";
-  renderer.domElement.style.touchAction = "none";
+  renderer.domElement.style.cursor = 'grab';
+  renderer.domElement.style.touchAction = 'none';
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -373,11 +360,11 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   controls.enabled = false;
   controls.enableKeys = false;
   controls.update();
-  controls.addEventListener("start", () => {
-    renderer.domElement.style.cursor = "grabbing";
+  controls.addEventListener('start', () => {
+    renderer.domElement.style.cursor = 'grabbing';
   });
-  controls.addEventListener("end", () => {
-    renderer.domElement.style.cursor = "grab";
+  controls.addEventListener('end', () => {
+    renderer.domElement.style.cursor = 'grab';
   });
 
   const ambient = new AmbientLight(0xffffff, 0.7);
@@ -392,7 +379,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   scene.add(sun);
 
   const groundMaterial = new MeshStandardMaterial({
-    color: "#d1d9e6",
+    color: '#d1d9e6',
     metalness: 0.02,
     roughness: 0.75,
   });
@@ -400,13 +387,11 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
 
   if (assets.mallScene) {
     const mall = assets.mallScene.clone(true);
-    mall.name = "shopping-mall";
-    const mallScale = 24;
-    mall.scale.setScalar(mallScale);
+    mall.name = 'shopping-mall';
     const characterNamePattern =
       /character|people|person|crowd|npc|male|female|man|woman|boy|girl|standee|cutout|cardboard/;
     mall.traverse((child) => {
-      const name = typeof child.name === "string" ? child.name.toLowerCase() : "";
+      const name = typeof child.name === 'string' ? child.name.toLowerCase() : '';
       if (name && characterNamePattern.test(name)) {
         child.visible = false;
         return;
@@ -441,10 +426,10 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   const cameraTarget = new Vector3();
   const desiredCamera = new Vector3();
   const tmpOffset = new Vector3();
-  let cameraMode = "orbit";
+  let cameraMode = 'orbit';
 
   function updateCameraFollow(target) {
-    if (cameraMode !== "follow" || !target) return;
+    if (cameraMode !== 'follow' || !target) return;
     cameraTarget.copy(target.position);
     tmpOffset.copy(cameraOffset).applyQuaternion(target.quaternion);
     desiredCamera.copy(target.position).add(tmpOffset);
@@ -460,26 +445,26 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
 
   const palettes = {
     light: {
-      background: "#dfe6ef",
-      ambientColor: "#ffffff",
+      background: '#dfe6ef',
+      ambientColor: '#ffffff',
       ambientIntensity: 0.7,
-      hemisphereSky: "#f3f7fe",
-      hemisphereGround: "#c9d6e6",
+      hemisphereSky: '#f3f7fe',
+      hemisphereGround: '#c9d6e6',
       hemisphereIntensity: 0.6,
-      sunColor: "#fff3db",
+      sunColor: '#fff3db',
       sunIntensity: 1.2,
-      groundColor: "#d1d9e6",
+      groundColor: '#d1d9e6',
     },
     dark: {
-      background: "#0b1014",
-      ambientColor: "#1d2939",
+      background: '#0b1014',
+      ambientColor: '#1d2939',
       ambientIntensity: 0.6,
-      hemisphereSky: "#1e293b",
-      hemisphereGround: "#0b1014",
+      hemisphereSky: '#1e293b',
+      hemisphereGround: '#0b1014',
       hemisphereIntensity: 0.32,
-      sunColor: "#94a3b8",
+      sunColor: '#94a3b8',
       sunIntensity: 0.85,
-      groundColor: "#111c27",
+      groundColor: '#111c27',
     },
   };
 
@@ -507,17 +492,17 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   }
 
   function setCameraMode(mode) {
-    cameraMode = mode === "follow" ? "follow" : "orbit";
-    controls.enabled = cameraMode === "orbit";
+    cameraMode = mode === 'follow' ? 'follow' : 'orbit';
+    controls.enabled = cameraMode === 'orbit';
     if (controls.enabled) {
       controls.update();
     }
-    camera.far = cameraMode === "orbit" ? 3000 : 2000;
+    camera.far = cameraMode === 'orbit' ? 3000 : 2000;
     camera.updateProjectionMatrix();
   }
 
   function updateCamera(target) {
-    if (cameraMode === "orbit") {
+    if (cameraMode === 'orbit') {
       controls.update();
     } else {
       updateCameraFollow(target);
@@ -531,7 +516,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     renderer.shadowMap.enabled = shadowsEnabled;
     try {
       sun.castShadow = shadowsEnabled;
-    } catch (_) { }
+    } catch (_) {}
     try {
       scene.traverse((child) => {
         if (child && child.isMesh) {
@@ -539,7 +524,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
           child.receiveShadow = shadowsEnabled;
         }
       });
-    } catch (_) { }
+    } catch (_) {}
   }
 
   return {
@@ -557,7 +542,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     dispose: () => {
       try {
         controls?.dispose?.();
-      } catch (_) { }
+      } catch (_) {}
     },
   };
 }
@@ -602,9 +587,9 @@ export class AudioManager {
       await this.initializeEngineSound();
 
       this.initialized = true;
-      console.log("[Audio] Audio system initialized");
+      console.log('[Audio] Audio system initialized');
     } catch (error) {
-      console.warn("[Audio] Failed to initialize audio system:", error);
+      console.warn('[Audio] Failed to initialize audio system:', error);
     }
   }
 
@@ -616,15 +601,15 @@ export class AudioManager {
     this.engineGain.connect(this.sfxGain);
 
     this.engineOsc1 = this.context.createOscillator();
-    this.engineOsc1.type = "sawtooth";
+    this.engineOsc1.type = 'sawtooth';
     this.engineOsc1.frequency.value = 40;
 
     this.engineOsc2 = this.context.createOscillator();
-    this.engineOsc2.type = "square";
+    this.engineOsc2.type = 'square';
     this.engineOsc2.frequency.value = 80;
 
     this.engineOsc3 = this.context.createOscillator();
-    this.engineOsc3.type = "sine";
+    this.engineOsc3.type = 'sine';
     this.engineOsc3.frequency.value = 200;
 
     const gain1 = this.context.createGain();
@@ -653,10 +638,7 @@ export class AudioManager {
     const normalizedSpeed = Math.min(speed / 20, 1);
     const engineVolume = Math.max(0.1, normalizedSpeed * 0.4 + throttle * 0.3);
 
-    this.engineGain.gain.linearRampToValueAtTime(
-      engineVolume,
-      this.context.currentTime + 0.1
-    );
+    this.engineGain.gain.linearRampToValueAtTime(engineVolume, this.context.currentTime + 0.1);
 
     if (this.engineOsc1) {
       this.engineOsc1.frequency.linearRampToValueAtTime(
@@ -687,11 +669,10 @@ export class AudioManager {
       const data = buffer.getChannelData(0);
 
       for (let i = 0; i < bufferSize; i++) {
-        if (type === "metal") {
+        if (type === 'metal') {
           data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
-        } else if (type === "human") {
-          data[i] =
-            (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5)) * 0.7;
+        } else if (type === 'human') {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5)) * 0.7;
         } else {
           data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
         }
@@ -703,7 +684,7 @@ export class AudioManager {
     return this.bufferPool.get(key);
   }
 
-  playCollisionSound(intensity = 1, type = "default") {
+  playCollisionSound(intensity = 1, type = 'default') {
     if (!this.context || !this.initialized) return;
 
     const duration = 0.2 + intensity * 0.3;
@@ -717,14 +698,14 @@ export class AudioManager {
     gain.gain.value = volume;
 
     const filter = this.context.createBiquadFilter();
-    if (type === "metal") {
-      filter.type = "highpass";
+    if (type === 'metal') {
+      filter.type = 'highpass';
       filter.frequency.value = 800;
-    } else if (type === "human") {
-      filter.type = "lowpass";
+    } else if (type === 'human') {
+      filter.type = 'lowpass';
       filter.frequency.value = 400;
     } else {
-      filter.type = "bandpass";
+      filter.type = 'bandpass';
       filter.frequency.value = 600;
     }
 
@@ -751,12 +732,9 @@ export class AudioManager {
     const duration = 0.3;
 
     const osc = this.context.createOscillator();
-    osc.type = "sine";
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(frequency, this.context.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(
-      frequency * 1.5,
-      this.context.currentTime + 0.1
-    );
+    osc.frequency.exponentialRampToValueAtTime(frequency * 1.5, this.context.currentTime + 0.1);
     osc.frequency.exponentialRampToValueAtTime(
       frequency * 0.8,
       this.context.currentTime + duration
@@ -764,10 +742,7 @@ export class AudioManager {
 
     const gain = this.context.createGain();
     gain.gain.setValueAtTime(0.4, this.context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.01,
-      this.context.currentTime + duration
-    );
+    gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
 
     this.activeNodes.add(osc);
     this.activeNodes.add(gain);
@@ -794,19 +769,13 @@ export class AudioManager {
       const freq = baseFreq + i * 100;
 
       const osc = this.context.createOscillator();
-      osc.type = "triangle";
+      osc.type = 'triangle';
       osc.frequency.value = freq;
 
       const gain = this.context.createGain();
       gain.gain.setValueAtTime(0, this.context.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(
-        0.3,
-        this.context.currentTime + delay + 0.05
-      );
-      gain.gain.exponentialRampToValueAtTime(
-        0.01,
-        this.context.currentTime + delay + 0.2
-      );
+      gain.gain.linearRampToValueAtTime(0.3, this.context.currentTime + delay + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + delay + 0.2);
 
       nodes.push(osc, gain);
       this.activeNodes.add(osc);
@@ -841,7 +810,7 @@ export class AudioManager {
   }
 
   resume() {
-    if (this.context && this.context.state === "suspended") {
+    if (this.context && this.context.state === 'suspended') {
       this.context.resume();
     }
   }
@@ -849,7 +818,7 @@ export class AudioManager {
   cleanupAudioNodes(nodes) {
     nodes.forEach((node) => {
       try {
-        if (node && typeof node.disconnect === "function") {
+        if (node && typeof node.disconnect === 'function') {
           node.disconnect();
         }
         this.activeNodes.delete(node);
@@ -862,10 +831,10 @@ export class AudioManager {
   cleanupAllNodes() {
     this.activeNodes.forEach((node) => {
       try {
-        if (node && typeof node.disconnect === "function") {
+        if (node && typeof node.disconnect === 'function') {
           node.disconnect();
         }
-        if (node && typeof node.stop === "function") {
+        if (node && typeof node.stop === 'function') {
           node.stop();
         }
       } catch (_) {
@@ -880,13 +849,13 @@ export class AudioManager {
       try {
         this.engineOsc1.stop();
         this.engineOsc1.disconnect();
-      } catch (_) { }
+      } catch (_) {}
     }
     if (this.engineOsc2) {
       try {
         this.engineOsc2.stop();
         this.engineOsc2.disconnect();
-      } catch (_) { }
+      } catch (_) {}
     }
 
     this.cleanupAllNodes();
@@ -897,7 +866,7 @@ export class AudioManager {
       try {
         this.context.close();
       } catch (error) {
-        console.warn("[Audio] Error closing audio context:", error);
+        console.warn('[Audio] Error closing audio context:', error);
       }
     }
 
@@ -912,32 +881,32 @@ export const audioManager = new AudioManager();
 // -----------------------------------------------------------------------------
 
 export const CollisionType = {
-  HUMAN: "human",
-  METAL: "metal",
-  DEFAULT: "default",
-  WOOD: "wood",
-  PLASTIC: "plastic",
+  HUMAN: 'human',
+  METAL: 'metal',
+  DEFAULT: 'default',
+  WOOD: 'wood',
+  PLASTIC: 'plastic',
 };
 
 export const TARGET_COLLISION_TYPES = {
-  "Mall Patron": CollisionType.HUMAN,
-  "Security Guard": CollisionType.HUMAN,
-  "Store Employee": CollisionType.HUMAN,
+  'Mall Patron': CollisionType.HUMAN,
+  'Security Guard': CollisionType.HUMAN,
+  'Store Employee': CollisionType.HUMAN,
   Janitor: CollisionType.HUMAN,
-  "Mall Manager": CollisionType.HUMAN,
-  "Mall Santa": CollisionType.HUMAN,
-  "Mime Artist": CollisionType.HUMAN,
-  "Street Performer": CollisionType.HUMAN,
-  "Mall Kiosk": CollisionType.METAL,
-  "Vending Machine": CollisionType.METAL,
+  'Mall Manager': CollisionType.HUMAN,
+  'Mall Santa': CollisionType.HUMAN,
+  'Mime Artist': CollisionType.HUMAN,
+  'Street Performer': CollisionType.HUMAN,
+  'Mall Kiosk': CollisionType.METAL,
+  'Vending Machine': CollisionType.METAL,
   ATM: CollisionType.METAL,
-  "Shopping Cart": CollisionType.METAL,
-  "Trash Can": CollisionType.METAL,
+  'Shopping Cart': CollisionType.METAL,
+  'Trash Can': CollisionType.METAL,
   Bench: CollisionType.WOOD,
-  "Poster Stand": CollisionType.WOOD,
-  "Box Stack": CollisionType.DEFAULT,
+  'Poster Stand': CollisionType.WOOD,
+  'Box Stack': CollisionType.DEFAULT,
   Planter: CollisionType.DEFAULT,
-  "Flower Pot": CollisionType.DEFAULT,
+  'Flower Pot': CollisionType.DEFAULT,
   default: CollisionType.DEFAULT,
 };
 
@@ -1056,18 +1025,18 @@ export function createSpawnSelector({
   getScooterBody,
 }) {
   invariant(
-    selectorCamera && typeof selectorCamera.isCamera === "boolean",
-    "createSpawnSelector requires a THREE camera instance."
+    selectorCamera && typeof selectorCamera.isCamera === 'boolean',
+    'createSpawnSelector requires a THREE camera instance.'
   );
   invariant(
-    selectorMall && typeof selectorMall.findNearestNavigablePoint === "function",
-    "createSpawnSelector requires selectorMall.findNearestNavigablePoint()."
+    selectorMall && typeof selectorMall.findNearestNavigablePoint === 'function',
+    'createSpawnSelector requires selectorMall.findNearestNavigablePoint().'
   );
 
   const RING_SEGMENTS = 48;
   const geometry = new RingGeometry(0.8, 1.25, RING_SEGMENTS);
   const material = new MeshBasicMaterial({
-    color: "#4f8ef7",
+    color: '#4f8ef7',
     opacity: 0.6,
     transparent: true,
     side: DoubleSide,
@@ -1148,10 +1117,10 @@ export function createSpawnSelector({
   function handleKey(event) {
     if (!active) return;
     const key = event.key.toLowerCase();
-    if (key === "enter" || key === " ") {
+    if (key === 'enter' || key === ' ') {
       event.preventDefault();
       finishSelection(candidate);
-    } else if (key === "escape") {
+    } else if (key === 'escape') {
       event.preventDefault();
       finishSelection(fallback);
     }
@@ -1160,9 +1129,9 @@ export function createSpawnSelector({
   function cleanup() {
     active = false;
     indicator.visible = false;
-    selectorDomElement.removeEventListener("pointermove", handlePointerMove);
-    selectorDomElement.removeEventListener("click", handleClick);
-    window.removeEventListener("keydown", handleKey);
+    selectorDomElement.removeEventListener('pointermove', handlePointerMove);
+    selectorDomElement.removeEventListener('click', handleClick);
+    window.removeEventListener('keydown', handleKey);
     resolvePromise = null;
   }
 
@@ -1173,9 +1142,9 @@ export function createSpawnSelector({
     active = true;
     fallback.copy(computeSafe(start ?? new Vector3(0, 0, 0)));
     preview(fallback);
-    selectorDomElement.addEventListener("pointermove", handlePointerMove);
-    selectorDomElement.addEventListener("click", handleClick);
-    window.addEventListener("keydown", handleKey);
+    selectorDomElement.addEventListener('pointermove', handlePointerMove);
+    selectorDomElement.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
     return new Promise((resolve) => {
       resolvePromise = resolve;
     });
@@ -1214,26 +1183,26 @@ export class ScoringSystem {
     this.basePoints = {
       Planter: 40,
       Bench: 55,
-      "Mall Kiosk": 120,
-      "Trash Can": 35,
-      "Poster Stand": 30,
-      "Box Stack": 25,
-      "Food Cart": 80,
-      "Vending Machine": 90,
-      "Shopping Cart": 45,
-      "Display Stand": 60,
-      "Flower Pot": 35,
-      "Newspaper Stand": 40,
+      'Mall Kiosk': 120,
+      'Trash Can': 35,
+      'Poster Stand': 30,
+      'Box Stack': 25,
+      'Food Cart': 80,
+      'Vending Machine': 90,
+      'Shopping Cart': 45,
+      'Display Stand': 60,
+      'Flower Pot': 35,
+      'Newspaper Stand': 40,
       ATM: 150,
-      "Phone Booth": 100,
-      "Mall Patron": 1600,
-      "Security Guard": 2000,
-      "Store Employee": 1400,
+      'Phone Booth': 100,
+      'Mall Patron': 1600,
+      'Security Guard': 2000,
+      'Store Employee': 1400,
       Janitor: 1200,
-      "Mall Manager": 2500,
-      "Mall Santa": 5000,
-      "Mime Artist": 3000,
-      "Street Performer": 2200,
+      'Mall Manager': 2500,
+      'Mall Santa': 5000,
+      'Mime Artist': 3000,
+      'Street Performer': 2200,
     };
 
     this.speedBonusMultipliers = {
@@ -1349,11 +1318,11 @@ export class ScoringSystem {
 
   checkSpecialBonuses(targetLabel, speed, currentTime) {
     let bonus = 0;
-    let message = "";
+    let message = '';
 
     if (speed > 20) {
       bonus += 200;
-      message = "SPEED DEMON!";
+      message = 'SPEED DEMON!';
     }
 
     if (this.combo > 0 && this.combo % 10 === 0) {
@@ -1361,12 +1330,7 @@ export class ScoringSystem {
       message = `${this.combo}X COMBO MASTER!`;
     }
 
-    const rareTargets = [
-      "Mall Santa",
-      "Mime Artist",
-      "Street Performer",
-      "Mall Manager",
-    ];
+    const rareTargets = ['Mall Santa', 'Mime Artist', 'Street Performer', 'Mall Manager'];
     if (rareTargets.includes(targetLabel)) {
       bonus += 1000;
       message = `RARE TARGET BONUS!`;
@@ -1374,7 +1338,7 @@ export class ScoringSystem {
 
     if (currentTime - this.lastHitTime < 500 && this.combo >= 3) {
       bonus += 300;
-      message = "RAPID FIRE!";
+      message = 'RAPID FIRE!';
     }
 
     return { bonus, message };
@@ -1424,7 +1388,7 @@ export class ScoringSystem {
   }
 
   getComboDisplay() {
-    if (this.combo < 2) return "";
+    if (this.combo < 2) return '';
     return `${this.combo}x COMBO!`;
   }
 
