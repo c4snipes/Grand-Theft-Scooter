@@ -10,14 +10,17 @@ SERVICE ?= web
 DOCKER_COMPOSE ?= docker compose -f $(DC_DEV)
 DEV_FLAGS ?= --host $(HOST) --port $(PORT)
 PREVIEW_FLAGS ?= --host $(HOST) --port $(PORT)
+GLTF_IMAGE ?= gltf-transform
+GLTF_REPO ?= $(REGISTRY)/c4snipes/gltf-transform
+GLTF_DOCKERFILE ?= docker/gltf-transform/Dockerfile
 
 DEFAULT_GOAL := help
 
-.PHONY: help help-extra help-all setup dev docker docker-stop build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-logs docker-shell stop-all start docker-all
+.PHONY: help help-extra help-all setup dev docker docker-stop build preview clean lint typecheck test check doctor docker-build docker-run docker-tag docker-push docker-logs docker-shell stop-all start docker-all docker-build-gltf docker-tag-gltf docker-push-gltf
 
 start: setup dev
 
-docker-all: docker-build docker-tag docker-push
+docker-all: docker-build docker-build-gltf docker-tag docker-tag-gltf docker-push docker-push-gltf
 
 help:
 	@printf 'Usage: make <target>\n\n'
@@ -108,7 +111,16 @@ preview:
 	$(PKG) run preview -- $(PREVIEW_FLAGS)
 
 docker-build:
-	docker build -f docker/Dockerfile -t $(IMAGE) .
+	@$(MAKE) docker-check
+	docker build -f .Dockerfile -t $(IMAGE) .
+
+docker-build-gltf:
+	@$(MAKE) docker-check
+	docker build -f .gltf-transform.Dockerfile -t $(GLTF_IMAGE) .
+
+docker-check:
+	@echo "Checking Docker daemon..."
+	@docker info >/dev/null 2>&1 || (echo "Docker daemon not available. Start Docker Desktop (open -a Docker) and wait until it's running, then retry." >&2; exit 1)
 
 docker-run:
 	docker run --rm -p 8080:80 $(IMAGE)
@@ -116,8 +128,14 @@ docker-run:
 docker-tag:
 	test -n "$(REPO)" && docker tag $(IMAGE) $(REPO):latest
 
+docker-tag-gltf:
+	test -n "$(GLTF_REPO)" && docker tag $(GLTF_IMAGE) $(GLTF_REPO):latest
+
 docker-push:
 	test -n "$(REPO)" && docker push $(REPO):latest
+
+docker-push-gltf:
+	test -n "$(GLTF_REPO)" && docker push $(GLTF_REPO):latest
 
 docker-logs:
 	$(DOCKER_COMPOSE) logs -f

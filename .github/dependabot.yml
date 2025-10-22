@@ -15,11 +15,8 @@ updates:
       interval: weekly
     labels:
       - dependencies
-    open-pull-requests-limit: 5
-    # Optionally add reviewers or assignees if desired
-    # reviewers:
-    #   - c4snipes
-
+    open-pull-requests-limit: 10
+  
   - package-ecosystem: docker
     directory: "/docker"
     schedule:

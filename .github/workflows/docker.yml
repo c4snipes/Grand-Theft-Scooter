@@ -39,7 +39,7 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: .
-          file: docker/Dockerfile
+          file: .Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: .
-          file: docker/gltf-transform/Dockerfile
+          file: .gltf-transform.Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/gltf-transform:${{ github.sha }}

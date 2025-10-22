@@ -1,0 +1,39 @@
+name: Docker Compose Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    services: {}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+
+      - name: Start docker-compose dev stack
+        run: |
+          docker compose -f .docker-compose.yml up -d --build
+
+      - name: Wait for dev server
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sSf http://localhost:5173/ >/dev/null; then
+              echo "dev server reachable" && exit 0
+            fi
+            echo "waiting for server... ($i)"; sleep 3
+          done
+          echo "server did not start"; exit 1
+
+      - name: Smoke test - fetch index
+        run: |
+          curl -sSf http://localhost:5173/ | grep -i "<html" || (echo "unexpected response" && exit 1)
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f .docker-compose.yml down --volumes
