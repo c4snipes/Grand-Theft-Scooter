@@ -201,7 +201,7 @@ export function initSpawnContext(ctx) {
     materials,
     mallBounds,
     registerInteractable,
-    getChunkKeyForPosition: (x, z) => `${Math.floor(x / 48)},${Math.floor(z / 48)}`,
+    getChunkKeyForPosition,
     propMaterials: mats,
   };
 }
@@ -348,10 +348,15 @@ export function spawnPlanter(position) {
   const centerY = height / 2;
   planter.position.set(pos.x, centerY, pos.z);
   const body = new Body({
-    mass: 0,
+    mass: 3.5,
     shape: new CannonBox(new Vec3(radius, centerY, radius)),
     position: new Vec3(pos.x, centerY, pos.z),
+    angularDamping: 0.82,
+    linearDamping: 0.5,
   });
+  body.allowSleep = true;
+  body.sleepSpeedLimit = 0.32;
+  body.sleepTimeLimit = 1.2;
   register({
     mesh: planter,
     body,
@@ -392,10 +397,15 @@ export function spawnBench(position) {
   const centerY = height / 2;
   bench.position.set(pos.x, centerY, pos.z);
   const body = new Body({
-    mass: 0,
+    mass: 5.5,
     shape: new CannonBox(new Vec3(width / 2, centerY, depth / 2)),
     position: new Vec3(pos.x, centerY, pos.z),
+    angularDamping: 0.78,
+    linearDamping: 0.48,
   });
+  body.allowSleep = true;
+  body.sleepSpeedLimit = 0.28;
+  body.sleepTimeLimit = 1.05;
   register({
     mesh: bench,
     body,
@@ -526,29 +536,43 @@ export function spawnPosterStand(position) {
 
 export function spawnBoxStack(position) {
   const pos = position ?? CTX.findSpawnPosition(3.8);
-  const base = new Group();
-  base.name = 'box-stack';
+  const stackCore = new Group();
   const mat = propMaterials.planter;
   const b1 = new Mesh(new BoxGeometry(0.7, 0.28, 0.6), mat);
   b1.position.y = 0.14;
-  base.add(b1);
+  stackCore.add(b1);
   const b2 = new Mesh(new BoxGeometry(0.5, 0.24, 0.48), mat);
   b2.position.set(0.05, 0.14 + 0.24, 0.02);
-  base.add(b2);
+  stackCore.add(b2);
   const b3 = new Mesh(new BoxGeometry(0.36, 0.22, 0.36), mat);
   b3.position.set(-0.08, 0.14 + 0.24 + 0.22, -0.04);
-  base.add(b3);
-  base.position.set(pos.x, 0, pos.z);
-  const approxH = 0.14 + 0.24 + 0.22 + 0.11;
+  stackCore.add(b3);
+  stackCore.updateMatrixWorld(true);
+
+  const bounds = new Box3().setFromObject(stackCore);
+  const size = bounds.getSize(new Vector3());
+  const center = bounds.getCenter(new Vector3());
+
+  stackCore.position.sub(center);
+
+  const stack = new Group();
+  stack.name = 'box-stack';
+  stack.add(stackCore);
+  stack.position.set(pos.x, center.y, pos.z);
+
+  const halfExtents = new Vec3(size.x / 2, size.y / 2, size.z / 2);
   const body = new Body({
     mass: 1.2,
-    shape: new CannonBox(new Vec3(0.35, approxH, 0.33)),
-    position: new Vec3(pos.x, approxH, pos.z),
+    shape: new CannonBox(halfExtents),
+    position: new Vec3(pos.x, center.y, pos.z),
     angularDamping: 0.6,
     linearDamping: 0.5,
   });
+  body.allowSleep = true;
+  body.sleepSpeedLimit = 0.34;
+  body.sleepTimeLimit = 1.1;
   register({
-    mesh: base,
+    mesh: stack,
     body,
     label: 'Box Stack',
     points: 25,
@@ -1142,6 +1166,8 @@ export function createMall({ world, scene, assets = {}, materials = {} } = {}) {
       record.chunkKey = key;
       const container = ensureChunk(key);
       container.group.add(mesh);
+      container.records?.add?.(record);
+      container.bodies?.add?.(body);
     } else {
       scene.add(mesh);
     }
@@ -1159,6 +1185,160 @@ export function createMall({ world, scene, assets = {}, materials = {} } = {}) {
     registerInteractable,
     propMaterials,
   });
+  const npcVariantPool = [];
+
+  function centerVisual(object) {
+    object.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(object);
+    const center = bounds.getCenter(new Vector3());
+    object.position.sub(center);
+    object.updateMatrixWorld(true);
+    const size = bounds.getSize(new Vector3());
+    return {
+      mesh: object,
+      height: size.y > 0 ? size.y : 1.7,
+    };
+  }
+
+  function ensureVariantPool() {
+    npcVariantPool.length = 0;
+    if (Array.isArray(assets.animatedMenVariants)) {
+      for (const entry of assets.animatedMenVariants) {
+        if (entry && entry.scene) npcVariantPool.push(entry);
+      }
+    }
+    if (Array.isArray(assets.animatedWomenVariants)) {
+      for (const entry of assets.animatedWomenVariants) {
+        if (entry && entry.scene) npcVariantPool.push(entry);
+      }
+    }
+  }
+
+  function makeVariantInstance(source) {
+    const clone = source.scene.clone(true);
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        if (child.material?.clone) child.material = child.material.clone();
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    const { mesh, height } = centerVisual(clone);
+    let mixer = null;
+    const clip =
+      Array.isArray(source.animations) && source.animations.length > 0
+        ? source.animations[0]
+        : null;
+    if (clip) {
+      mixer = new AnimationMixer(mesh);
+      const action = mixer.clipAction(clip);
+      action.reset();
+      action.setLoop(LoopRepeat, Infinity);
+      action.play();
+    }
+    return { mesh, height, mixer };
+  }
+
+  function makeBaseCharacterInstance() {
+    if (!assets.characterBaseScene) return null;
+    const base = assets.characterBaseScene.clone(true);
+    base.traverse((child) => {
+      if (child.isMesh) {
+        if (child.material?.clone) child.material = child.material.clone();
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    const { mesh, height } = centerVisual(base);
+    let mixer = null;
+    const clip =
+      Array.isArray(assets.characterBaseAnimations) &&
+      assets.characterBaseAnimations.length > 0
+        ? assets.characterBaseAnimations[0]
+        : null;
+    if (clip) {
+      mixer = new AnimationMixer(mesh);
+      const action = mixer.clipAction(clip);
+      action.reset();
+      action.setLoop(LoopRepeat, Infinity);
+      action.play();
+    }
+    return { mesh, height, mixer };
+  }
+
+  function makeFallbackPatronVisual() {
+    const group = new Group();
+    const legs = new Mesh(new CylinderGeometry(0.22, 0.24, 0.7, 14), propMaterials.humanBottom);
+    legs.position.y = -0.35;
+    group.add(legs);
+    const torso = new Mesh(new CylinderGeometry(0.3, 0.34, 0.95, 18), propMaterials.humanTop);
+    torso.position.y = 0.25;
+    group.add(torso);
+    const arms = new Mesh(new BoxGeometry(0.68, 0.18, 0.18), propMaterials.humanTop);
+    arms.position.y = 0.45;
+    group.add(arms);
+    const head = new Mesh(new SphereGeometry(0.22, 18, 18), propMaterials.humanSkin);
+    head.position.y = 0.85;
+    group.add(head);
+    const hair = new Mesh(new SphereGeometry(0.24, 16, 16), propMaterials.humanHair);
+    hair.scale.set(0.95, 0.65, 0.95);
+    hair.position.y = 1.03;
+    group.add(hair);
+    group.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    const { mesh, height } = centerVisual(group);
+    return { mesh, height, mixer: null };
+  }
+
+  function createPatronVisual() {
+    ensureVariantPool();
+    if (npcVariantPool.length > 0) {
+      return makeVariantInstance(choose(npcVariantPool));
+    }
+    const base = makeBaseCharacterInstance();
+    if (base) return base;
+    return makeFallbackPatronVisual();
+  }
+
+  function spawnPatron(positionOverride) {
+    const pos = positionOverride ?? findSpawnPosition(5);
+    const { mesh, height, mixer } = createPatronVisual();
+    mesh.name = 'mall-patron';
+    const bodyHeight = Math.max(1.2, height);
+    const radius = Math.min(0.6, Math.max(0.28, bodyHeight * 0.18));
+    const body = new Body({
+      mass: 3.5,
+      shape: new CannonBox(new Vec3(radius, bodyHeight / 2, radius)),
+      position: new Vec3(pos.x, bodyHeight / 2, pos.z),
+      angularDamping: 0.85,
+      linearDamping: 0.55,
+    });
+    body.allowSleep = true;
+    body.sleepSpeedLimit = 0.25;
+    body.sleepTimeLimit = 0.9;
+    const initialYaw = Math.random() * Math.PI * 2;
+    body.quaternion.setFromEuler(0, initialYaw, 0);
+    registerInteractable({
+      mesh,
+      body,
+      label: 'Mall Patron',
+      points: 120,
+      type: INTERACTABLE_TYPES.HUMAN,
+      respawn: spawnMallPatron,
+      mixer,
+      chunkKey: getChunkKeyForPosition(pos.x, pos.z),
+    });
+    return mesh;
+  }
+
+  if (CTX) {
+    CTX._spawnMallPatron = spawnPatron;
+    CTX.findSpawnPosition = findSpawnPosition;
+  }
 
   function isPositionFree(pos, minDistance, options = {}) {
     const minDistanceSq = minDistance * minDistance;
@@ -1862,27 +2042,92 @@ export function createScooter({ world, material, assets = {} } = {}) {
   const { group, mixers } = buildScooterMeshFromAssets(assets);
   const mesh = group;
 
+  // Wheel visualisation tuning constants
+  const CONTROL_SPIN_SPEED = 7; // Approximate m/s when fully throttled for visual spin fallback
+  const MIN_PHYSICS_SPEED_FOR_SPIN = 0.05;
+  const localForward = new Vec3(0, 0, -1);
+  const worldForward = new Vec3();
+
   let controlsState = { drive: 0, steer: 0 };
   let wheelSpin = 0;
+  const wheelControlDebug = {
+    lastControls: { drive: 0, steer: 0 },
+    lastSpinSource: 'init',
+    lastFrontSpinDelta: 0,
+    lastRearSpinDelta: 0,
+    lastSpinDelta: 0,
+    lastSteerTargets: [],
+    lastSteerAngle: 0,
+    commandedSpeed: 0,
+    measuredForwardSpeed: 0,
+    timestamp: typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(),
+  };
+  mesh.userData.controlsState = { ...controlsState };
+  mesh.userData.wheelControl = wheelControlDebug;
+
   function updateVisualWheels(delta) {
     const wheels = mesh.userData && mesh.userData.wheels ? mesh.userData.wheels : null;
     if (!wheels) return;
-    const speed = body.velocity.length();
+    let appliedSpinDelta = 0;
+    let frontSpinDelta = 0;
+    let rearSpinDelta = 0;
+
+    worldForward.copy(localForward);
+    body.quaternion.vmult(worldForward, worldForward);
+    const measuredForwardSpeed = body.velocity ? body.velocity.dot(worldForward) : 0;
+    const commandedSpeed = (controlsState.drive || 0) * CONTROL_SPIN_SPEED;
+    const effectiveSpeed =
+      Math.abs(measuredForwardSpeed) > MIN_PHYSICS_SPEED_FOR_SPIN
+        ? measuredForwardSpeed
+        : commandedSpeed;
+
     if (delta > 0) {
       const radius = wheels.frontRadius || wheels.rearRadius || 0.2;
       if (radius > 0) {
-        const distance = speed * delta;
-        const dir = (controlsState.drive || 0) < 0 ? -1 : 1;
-        const spinDelta = (distance / radius) * dir;
-        wheelSpin = (wheelSpin + spinDelta) % (Math.PI * 2);
-        if (wheels.frontWheel) wheels.frontWheel.rotation.x -= spinDelta;
-        if (wheels.rearWheel) wheels.rearWheel.rotation.x -= spinDelta;
+        const distance = effectiveSpeed * delta;
+        if (distance !== 0) {
+          const spinDelta = distance / radius;
+          wheelSpin = (wheelSpin + spinDelta) % (Math.PI * 2);
+          const prevFrontRotation = wheels.frontWheel ? wheels.frontWheel.rotation.x : null;
+          const prevRearRotation = wheels.rearWheel ? wheels.rearWheel.rotation.x : null;
+          if (wheels.frontWheel) wheels.frontWheel.rotation.x -= spinDelta;
+          if (wheels.rearWheel) wheels.rearWheel.rotation.x -= spinDelta;
+          if (wheels.frontWheel && prevFrontRotation !== null) {
+            frontSpinDelta = wheels.frontWheel.rotation.x - prevFrontRotation;
+          }
+          if (wheels.rearWheel && prevRearRotation !== null) {
+            rearSpinDelta = wheels.rearWheel.rotation.x - prevRearRotation;
+          }
+          appliedSpinDelta = spinDelta;
+        } else {
+          appliedSpinDelta = 0;
+          frontSpinDelta = 0;
+          rearSpinDelta = 0;
+        }
       }
     }
     const steerAngle = (controlsState.steer || 0) * 0.35;
     if (wheels.fork) wheels.fork.rotation.y = steerAngle;
     if (wheels.handlebar) wheels.handlebar.rotation.y = steerAngle;
     if (wheels.frontWheel) wheels.frontWheel.rotation.y = steerAngle;
+
+    wheelControlDebug.lastControls.drive = controlsState.drive || 0;
+    wheelControlDebug.lastControls.steer = controlsState.steer || 0;
+    wheelControlDebug.lastSpinSource =
+      Math.abs(measuredForwardSpeed) > MIN_PHYSICS_SPEED_FOR_SPIN ? 'physics' : 'controls';
+    wheelControlDebug.commandedSpeed = commandedSpeed;
+    wheelControlDebug.measuredForwardSpeed = measuredForwardSpeed;
+    wheelControlDebug.lastSpinDelta = appliedSpinDelta;
+    wheelControlDebug.lastFrontSpinDelta = frontSpinDelta;
+    wheelControlDebug.lastRearSpinDelta = rearSpinDelta;
+    wheelControlDebug.lastSteerAngle = steerAngle;
+    wheelControlDebug.lastSteerTargets = [
+      wheels.fork?.rotation?.y,
+      wheels.handlebar?.rotation?.y,
+      wheels.frontWheel?.rotation?.y,
+    ].filter((v) => typeof v === 'number' && isFinite(v));
+    wheelControlDebug.timestamp =
+      typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
   }
 
   return {
@@ -1891,6 +2136,10 @@ export function createScooter({ world, material, assets = {} } = {}) {
     setControlsState(next) {
       if (next && typeof next === 'object') {
         controlsState = { ...controlsState, ...next };
+        mesh.userData.controlsState = { ...controlsState };
+        wheelControlDebug.lastControls = { ...controlsState };
+        wheelControlDebug.timestamp =
+          typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       }
     },
     sync(delta = 0) {
@@ -1902,6 +2151,40 @@ export function createScooter({ world, material, assets = {} } = {}) {
         }
       }
       updateVisualWheels(delta);
+    },
+    verifyWheelControl(tolerance = 0.05) {
+      const wheels = mesh.userData && mesh.userData.wheels ? mesh.userData.wheels : null;
+      if (!wheels) {
+        return { ok: false, reason: 'No wheel metadata found.' };
+      }
+      const targetSteer = (controlsState.steer || 0) * 0.35;
+      const steerMatches =
+        wheelControlDebug.lastSteerTargets.length > 0
+          ? wheelControlDebug.lastSteerTargets.every(
+              (angle) => Math.abs(angle - targetSteer) <= tolerance
+            )
+          : true;
+      const driveMatches =
+        Math.abs(controlsState.drive || 0) <= tolerance
+          ? Math.abs(wheelControlDebug.lastFrontSpinDelta || wheelControlDebug.lastRearSpinDelta) <=
+            tolerance
+          : Math.abs(
+              wheelControlDebug.lastFrontSpinDelta || wheelControlDebug.lastRearSpinDelta || 0
+            ) > tolerance / 10;
+      return {
+        ok: steerMatches && driveMatches,
+        steerMatches,
+        driveMatches,
+        targetSteer,
+        appliedSteers: wheelControlDebug.lastSteerTargets,
+        driveInput: controlsState.drive || 0,
+        appliedSpinDelta:
+          wheelControlDebug.lastFrontSpinDelta || wheelControlDebug.lastRearSpinDelta || 0,
+        spinSource: wheelControlDebug.lastSpinSource,
+        commandedSpeed: wheelControlDebug.commandedSpeed,
+        measuredForwardSpeed: wheelControlDebug.measuredForwardSpeed,
+        timestamp: wheelControlDebug.timestamp,
+      };
     },
   };
 }
