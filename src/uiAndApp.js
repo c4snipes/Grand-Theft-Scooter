@@ -8,7 +8,6 @@ import {
   loadNpcPacks,
   assertDefined,
   invariant,
-  createSpawnSelector,
   createGameLoop,
   audioManager,
   scoringSystem,
@@ -834,7 +833,7 @@ const UI_MESSAGES = {
   CAMERA_FREE:
     'Free camera active. Drag to look around, scroll to zoom. Press C to get back on the scooter, R to reposition your ride, Esc for settings.',
   GAME_READY: 'Ready to roll! Hit the gas and see how much chaos you can cause.',
-  SPAWN_SELECT: 'Click to choose spawn location, or press Enter to confirm current position.',
+  SPAWN_DEPLOYED: 'Scooter deployed to the nearest clear path. Ride safe!',
 };
 
 function updateHudHints(layout) {
@@ -877,7 +876,6 @@ export async function startGame(canvas) {
   let activeLayout = 'wasd';
   let applyEnvironmentTheme = () => {};
   let isGameOver = false;
-  let spawnSelector = null;
   let orbitControls = null;
   let playerControls = null;
 
@@ -900,11 +898,8 @@ export async function startGame(canvas) {
     loadingEl.hidden = !visible;
   }
 
-  const isSpawnSelectorActive = () => Boolean(spawnSelector?.isActive?.());
-
   function refreshCameraMessage() {
     if (!scoreboard || isGameOver) return;
-    if (isSpawnSelectorActive()) return;
 
     const message =
       cameraMode === 'orbit' ? UI_MESSAGES.CAMERA_FREE : UI_MESSAGES.CAMERA_FOLLOW(activeLayout);
@@ -1226,31 +1221,6 @@ export async function startGame(canvas) {
   let npcPacksLoading = false;
 
   let resetInProgress = false;
-  // Build spawn selector UI module
-  spawnSelector = createSpawnSelector({
-    selectorCamera: camera,
-    selectorRenderer: renderer,
-    selectorScene: scene,
-    selectorMall: mall,
-    getScooterBody: () => scooter.body,
-  });
-
-  // While the spawn selector is active, render frames so the user can see the map and indicator
-  let spawnPreviewActive = false;
-  let spawnPreviewFrameId = null;
-  function renderSpawnPreview() {
-    if (!spawnPreviewActive) {
-      spawnPreviewFrameId = null;
-      return;
-    }
-    renderer.render(scene, camera);
-    if (spawnPreviewFrameId === null) {
-      spawnPreviewFrameId = requestAnimationFrame(() => {
-        spawnPreviewFrameId = null;
-        renderSpawnPreview();
-      });
-    }
-  }
 
   function updateRunTelemetry(force = false) {
     if (!scoreboard) return;
@@ -1287,52 +1257,15 @@ export async function startGame(canvas) {
     }
   }
 
-  async function resetScooter({ interactive = true } = {}) {
+  async function resetScooter() {
     if (isGameOver || resetInProgress) return;
     resetInProgress = true;
     try {
       const previous = new Vector3(spawnPoint.x, 0, spawnPoint.z);
-      let target = mall.findNearestNavigablePoint(previous, 3.6, {
+      const candidate = mall.findNearestNavigablePoint(previous, 3.6, {
         ignoreBodies: [scooter.body],
       });
-
-      const prevCameraMode = cameraMode;
-      if (interactive) {
-        // Lock UI so settings cannot be opened/changed during spawn selection
-        lockUi();
-        try {
-          settings.close?.();
-        } catch (_) {}
-
-        // Let the user orbit/pan/zoom the camera while choosing spawn
-        if (prevCameraMode !== 'orbit') {
-          cameraMode = 'orbit';
-          setCameraMode(cameraMode);
-        }
-
-        scoreboard.setMessage(
-          'Click the floor to deploy your scooter. Press Enter to confirm or Esc to use the suggested spot.',
-          { duration: 0 }
-        );
-        spawnPreviewActive = true;
-        renderSpawnPreview();
-        try {
-          target = await spawnSelector.pick(target);
-        } finally {
-          spawnPreviewActive = false;
-          const pendingId = spawnPreviewFrameId;
-          spawnPreviewFrameId = null;
-          if (pendingId !== null) {
-            cancelAnimationFrame(pendingId);
-          }
-          unlockUi();
-          if (scoreboard) {
-            scoreboard.clearMessage();
-          }
-        }
-      }
-
-      const safe = mall.findNearestNavigablePoint(target, 3.6, {
+      const safe = mall.findNearestNavigablePoint(candidate, 3.6, {
         ignoreBodies: [scooter.body],
       });
       const halfY = scooter?.body?.shapes?.[0]?.halfExtents?.y ?? SCOOTER_SPAWN_HEIGHT - 0.05;
@@ -1359,10 +1292,6 @@ export async function startGame(canvas) {
         spawnQuaternion.w
       );
       scooter.sync(0);
-      if (interactive && prevCameraMode !== cameraMode) {
-        cameraMode = prevCameraMode;
-        setCameraMode(cameraMode);
-      }
       if (window.DEBUG_SPAWN) {
         try {
           debug.setSpawnMarker(spawnPoint.x, spawnPoint.y, spawnPoint.z);
@@ -1377,14 +1306,14 @@ export async function startGame(canvas) {
         cameraMode = 'follow';
         setCameraMode(cameraMode);
       }
-      resetRunStats({ showTagline: interactive });
+      resetRunStats({ showTagline: true, message: UI_MESSAGES.SPAWN_DEPLOYED });
     } finally {
       resetInProgress = false;
     }
   }
 
-  function queueReset(options = {}) {
-    resetScooter(options).catch((error) => {
+  function queueReset() {
+    resetScooter().catch((error) => {
       console.error('[Grand Theft Scooter] Failed to reset scooter:', error);
     });
   }
@@ -1393,27 +1322,25 @@ export async function startGame(canvas) {
   if (resetButton) {
     handleResetButtonClick = (event) => {
       event.preventDefault();
-      queueReset({ interactive: true });
+      queueReset();
     };
     resetButton.addEventListener('click', handleResetButtonClick);
   }
 
   function handleCameraModeToggle() {
-    if (isGameOver || isSpawnSelectorActive()) return;
+    if (isGameOver) return;
     cameraMode = cameraMode === 'orbit' ? 'follow' : 'orbit';
     setCameraMode(cameraMode);
     refreshCameraMessage();
   }
 
   function handleResetKey(event) {
-    if (isSpawnSelectorActive()) return;
     event.preventDefault();
-    queueReset({ interactive: !event.shiftKey });
+    queueReset();
   }
 
   function handleTelemetryKey(event) {
     event.preventDefault();
-    if (isSpawnSelectorActive()) return;
     const visible = scoreboard.toggleDashboard();
     scoreboard.setMessage(
       visible ? 'Telemetry open. Press I to hide.' : 'Telemetry hidden. Press I to view stats.',
@@ -1585,16 +1512,9 @@ export async function startGame(canvas) {
         resetButton.removeEventListener('click', handleResetButtonClick);
       } catch (_) {}
     }
-    if (spawnPreviewFrameId !== null) {
-      cancelAnimationFrame(spawnPreviewFrameId);
-      spawnPreviewFrameId = null;
-    }
     unlockUi();
     try {
       scooter.body.removeEventListener('collide', onScooterCollide);
-    } catch (_) {}
-    try {
-      spawnSelector?.dispose?.();
     } catch (_) {}
     try {
       playerControls?.dispose?.();
@@ -1637,7 +1557,7 @@ export async function startGame(canvas) {
     } catch (_) {}
   }
 
-  await resetScooter({ interactive: true });
+  await resetScooter();
   updateRunTelemetry(true);
   setTimeout(() => {
     if (!isGameOver) {
@@ -1657,7 +1577,7 @@ export async function startGame(canvas) {
     renderer,
     camera,
     orbitControls,
-    isFreeCameraActive: () => cameraMode === 'orbit' && !isSpawnSelectorActive(),
+    isFreeCameraActive: () => cameraMode === 'orbit',
     alignHorizontalAxis,
   }).start();
 }
