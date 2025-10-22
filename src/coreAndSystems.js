@@ -340,7 +340,7 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
-  let shadowsEnabled = false;
+  const shadowsEnabled = false;
   renderer.shadowMap.enabled = shadowsEnabled;
 
   const scene = new Scene();
@@ -509,24 +509,6 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     }
   }
 
-  function setShadowsEnabled(enabled) {
-    const next = !!enabled;
-    if (shadowsEnabled === next) return;
-    shadowsEnabled = next;
-    renderer.shadowMap.enabled = shadowsEnabled;
-    try {
-      sun.castShadow = shadowsEnabled;
-    } catch (_) {}
-    try {
-      scene.traverse((child) => {
-        if (child && child.isMesh) {
-          child.castShadow = shadowsEnabled;
-          child.receiveShadow = shadowsEnabled;
-        }
-      });
-    } catch (_) {}
-  }
-
   return {
     renderer,
     scene,
@@ -538,7 +520,6 @@ export function createEnvironment(canvas, assets = {}, options = {}) {
     handleResize,
     controls,
     setColorMode,
-    setShadowsEnabled,
     dispose: () => {
       try {
         controls?.dispose?.();
