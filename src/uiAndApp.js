@@ -910,7 +910,20 @@ export async function startGame(canvas) {
   activeLayout = settings.getControlScheme();
   updateHudHints(activeLayout);
 
-  const assets = await loadMallAssets();
+  const mallAssetsPromise = loadMallAssets();
+  const npcPacksPromise = loadNpcPacks().catch((error) => {
+    console.error('[NPC] Failed to load NPC packs:', error);
+    return null;
+  });
+
+  const assets = await mallAssetsPromise;
+  const npcPacks = await npcPacksPromise;
+  if (npcPacks) {
+    const { animatedMenVariants = [], animatedWomenVariants = [] } = npcPacks;
+    assets.animatedMenVariants = animatedMenVariants;
+    assets.animatedWomenVariants = animatedWomenVariants;
+    assets.npcPacksReady = true;
+  }
   const {
     renderer,
     scene,
@@ -1448,31 +1461,6 @@ export async function startGame(canvas) {
     scooter.sync(delta);
     mall.sync(delta);
     updateCamera(scooter.mesh);
-
-    // Kick off lazy NPC pack loading once to improve startup and upgrade future spawns
-    if (!assets.npcPacksReady && !npcPacksLoading) {
-      npcPacksLoading = true;
-      loadNpcPacks()
-        .then(({ animatedMenVariants, animatedWomenVariants }) => {
-          assets.animatedMenVariants = animatedMenVariants;
-          assets.animatedWomenVariants = animatedWomenVariants;
-          assets.npcPacksReady = true;
-        })
-        .then(() => {
-          try {
-            if (mall && typeof mall.addPatrons === 'function') {
-              // Add a fresh batch of higher-fidelity NPCs now that packs are ready
-              mall.addPatrons(14);
-            }
-          } finally {
-            npcPacksLoading = false;
-          }
-        })
-        .catch((error) => {
-          console.error('[NPC] Failed to load NPC packs:', error);
-          npcPacksLoading = false;
-        });
-    }
 
     renderer.render(scene, camera);
   }
