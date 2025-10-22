@@ -302,6 +302,9 @@ export function createScoreboard() {
       return totals.score;
     },
     updateTelemetry(patch = {}) {
+      if (typeof patch.score === 'number' && Number.isFinite(patch.score)) {
+        totals.score = Math.max(0, Math.floor(patch.score));
+      }
       if (typeof patch.speed === 'number') totals.speed = clamp(patch.speed, 0, 150);
       if (typeof patch.topSpeed === 'number') totals.topSpeed = Math.max(0, patch.topSpeed);
       if (typeof patch.hits === 'number') {
@@ -473,7 +476,6 @@ function getDefaultSettings() {
     controlScheme: 'wasd',
     theme: detectPreferredTheme(),
     cameraSensitivity: 'normal',
-    shadows: false,
     debugMarkers: false,
   };
 }
@@ -517,7 +519,6 @@ function readStoredSettings() {
       cameraSensitivity: ['low', 'normal', 'high'].includes(parsed.cameraSensitivity)
         ? parsed.cameraSensitivity
         : defaults.cameraSensitivity,
-      shadows: typeof parsed.shadows === 'boolean' ? parsed.shadows : defaults.shadows,
       debugMarkers:
         typeof parsed.debugMarkers === 'boolean' ? parsed.debugMarkers : defaults.debugMarkers,
     };
@@ -547,7 +548,6 @@ export function createSettingsManager({
   onControlSchemeChange,
   onThemeChange,
   onCameraSensitivityChange,
-  onGraphicsChange,
   onDebugChange,
 } = {}) {
   if (typeof window === 'undefined') {
@@ -565,7 +565,6 @@ export function createSettingsManager({
   const controlInputs = Array.from(root.querySelectorAll('[data-control-option]'));
   const themeInputs = Array.from(root.querySelectorAll('[data-theme-option]'));
   const sensitivityInputs = Array.from(root.querySelectorAll('[data-sensitivity-option]'));
-  const shadowsInput = root.querySelector('[data-shadows-option]');
   const debugMarkersInput = root.querySelector('[data-debug-markers-option]');
 
   const closeTriggers = Array.from(root.querySelectorAll('[data-settings-close]'));
@@ -624,12 +623,6 @@ export function createSettingsManager({
   function emitSensitivityChange() {
     if (typeof onCameraSensitivityChange === 'function') {
       onCameraSensitivityChange(settings.cameraSensitivity);
-    }
-  }
-
-  function emitGraphicsChange() {
-    if (typeof onGraphicsChange === 'function') {
-      onGraphicsChange({ shadows: !!settings.shadows });
     }
   }
 
@@ -762,29 +755,10 @@ export function createSettingsManager({
     });
   });
 
-  function syncShadowsInput() {
-    if (shadowsInput) {
-      shadowsInput.checked = !!settings.shadows;
-    }
-  }
-
   function syncDebugMarkersInput() {
     if (debugMarkersInput) {
       debugMarkersInput.checked = !!settings.debugMarkers;
     }
-  }
-
-  if (shadowsInput) {
-    shadowsInput.addEventListener('change', () => {
-      if (!openState || isUiLocked()) {
-        // block background changes while closed/locked
-        shadowsInput.checked = !!settings.shadows; // snap back UI state
-        return;
-      }
-      settings.shadows = !!shadowsInput.checked;
-      persistSettings(settings);
-      emitGraphicsChange();
-    });
   }
 
   if (debugMarkersInput) {
@@ -804,20 +778,17 @@ export function createSettingsManager({
   applyDocumentTheme(settings.theme);
   syncThemeInputs();
   syncSensitivityInputs();
-  syncShadowsInput();
   syncDebugMarkersInput();
 
   emitSensitivityChange();
   emitControlChange();
   emitThemeChange();
-  emitGraphicsChange();
   emitDebugChange();
 
   return {
     getControlScheme: () => settings.controlScheme,
     getTheme: () => settings.theme,
     getCameraSensitivity: () => settings.cameraSensitivity,
-    getShadowsEnabled: () => !!settings.shadows,
     getDebugMarkersEnabled: () => !!settings.debugMarkers,
     open,
     close,
@@ -934,11 +905,6 @@ export async function startGame(canvas) {
       applyEnvironmentTheme(themeMode);
     },
     onCameraSensitivityChange: applyCameraSensitivity,
-    onGraphicsChange: (g) => {
-      try {
-        setShadows?.(!!g?.shadows);
-      } catch (_) {}
-    },
     onDebugChange: (enabled) => {
       try {
         window.DEBUG_SPAWN = !!enabled;
@@ -961,7 +927,6 @@ export async function startGame(canvas) {
     handleResize,
     controls: environmentControls,
     setColorMode,
-    setShadowsEnabled,
     dispose: disposeEnvironment,
   } = createEnvironment(canvas, assets, { theme: settings.getTheme() });
 
@@ -996,10 +961,6 @@ export async function startGame(canvas) {
   invariant(typeof setColorMode === 'function', 'createEnvironment must supply setColorMode().');
   applyEnvironmentTheme = setColorMode;
   applyEnvironmentTheme(settings.getTheme());
-  const setShadows = setShadowsEnabled;
-  try {
-    setShadows?.(!!settings.getShadowsEnabled?.());
-  } catch (_) {}
 
   // Debug markers setup and toggle (F9) for spawn/floor diagnostics
   const debug = createDebugMarkers(scene);
@@ -1050,6 +1011,24 @@ export async function startGame(canvas) {
       typeof scoreboard.toggleDashboard === 'function',
     'createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard().'
   );
+  scoringSystem.setCallbacks({
+    onScoreUpdate: (score, points, details) => {
+      scoreboard.updateTelemetry({ score });
+      if (details?.targetLabel) {
+        scoreboard.setMessage(`+${points} ${details.targetLabel}`, { duration: 1500 });
+      } else {
+        scoreboard.setMessage(`+${points}`, { duration: 1500 });
+      }
+    },
+    onComboUpdate: (combo, increased) => {
+      if (increased && combo >= 3) {
+        scoreboard.setMessage(`${combo}x COMBO!`, { duration: 1200 });
+      }
+    },
+    onSpecialBonus: (message, bonus) => {
+      scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
+    },
+  });
   resetRunStats({ showTagline: true });
   invariant(
     playerControls && typeof playerControls.setLayout === 'function',
@@ -1200,29 +1179,23 @@ export async function startGame(canvas) {
   // Initialize audio system
   let audioInitialized = false;
   async function initializeAudio() {
-    if (!audioInitialized) {
+    if (audioInitialized) return;
+    try {
       await audioManager.initialize();
       audioInitialized = true;
-
-      // Setup scoring system callbacks
-      scoringSystem.setCallbacks({
-        onScoreUpdate: (score, points, breakdown) => {
-          scoreboard.updateTelemetry({ score });
-          scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, {
-            duration: 1500,
-          });
-        },
-        onComboUpdate: (combo, increased) => {
-          if (increased && combo >= 3) {
-            scoreboard.setMessage(`${combo}x COMBO!`, { duration: 1200 });
-          }
-        },
-        onSpecialBonus: (message, bonus) => {
-          scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
-        },
-      });
+    } catch (error) {
+      console.warn('[Audio] Failed to initialize audio context:', error);
     }
   }
+  const primeAudio = () => {
+    window.removeEventListener('pointerdown', primeAudio);
+    window.removeEventListener('keydown', primeAudio);
+    initializeAudio().catch((error) => {
+      console.warn('[Audio] Deferred initialization failed:', error);
+    });
+  };
+  window.addEventListener('pointerdown', primeAudio, { once: true });
+  window.addEventListener('keydown', primeAudio, { once: true });
   let npcPacksLoading = false;
 
   let resetInProgress = false;
@@ -1257,11 +1230,13 @@ export async function startGame(canvas) {
     const now = performance.now();
     if (!force && now - lastTelemetryUpdateMs < TELEMETRY_INTERVAL_MS) return;
     lastTelemetryUpdateMs = now;
+    const stats = scoringSystem.getStats();
     const elapsedMs =
       isGameOver && runStats.endTime
         ? runStats.endTime - runStats.startTime
         : now - runStats.startTime;
     scoreboard.updateTelemetry({
+      score: stats.score,
       speed: currentSpeed,
       topSpeed: runStats.topSpeed,
       hits: runStats.hits,
@@ -1272,6 +1247,7 @@ export async function startGame(canvas) {
   }
 
   function resetRunStats({ showTagline = false, message } = {}) {
+    scoringSystem.reset();
     runStats.hits = 0;
     runStats.hazards = 0;
     runStats.topSpeed = 0;
@@ -1488,7 +1464,7 @@ export async function startGame(canvas) {
 
       // Use enhanced scoring system
       const currentSpeed = scooter.body.velocity.length();
-      const scoreResult = scoringSystem.awardPoints(hit.label, currentSpeed);
+      scoringSystem.awardPoints(hit.label, currentSpeed);
 
       // Play collision sound based on target type (optimized with type flags)
       const soundType = getCollisionType(hit.label);
@@ -1504,7 +1480,6 @@ export async function startGame(canvas) {
       // Update scoreboard with new scoring system
       scoreboard.updateTelemetry({
         hits: runStats.hits,
-        score: scoringSystem.getStats().score,
       });
     }
   };
@@ -1574,6 +1549,12 @@ export async function startGame(canvas) {
 
   // Centralized teardown to ensure listeners and DOM are cleaned up before restart
   disposeAll = () => {
+    try {
+      window.removeEventListener('pointerdown', primeAudio);
+    } catch (_) {}
+    try {
+      window.removeEventListener('keydown', primeAudio);
+    } catch (_) {}
     try {
       window.removeEventListener('keydown', handleGameKeydown);
     } catch (_) {}

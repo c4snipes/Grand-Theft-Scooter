@@ -104,15 +104,18 @@ Evaluation: keep `public/assets` lean and validated.
 
 Goal: bring up local containers with Compose.
 
-What was done: the dev Compose file is `docker/docker-compose.dev.yml`.
+What was done: the project uses a root compose file `.docker-compose.yml` that extends the dev
+definition under `docker/docker-compose.dev.yml`.
 
-- Start: `docker compose -f docker/docker-compose.dev.yml up -d`
-- Validate: `docker compose -f docker/docker-compose.dev.yml config`
-- Check: `docker ps -a --filter "name=grand-theft-scooter-web-1"`
+- Validate: `docker compose -f .docker-compose.yml config`
+- Start (foreground): `docker compose -f .docker-compose.yml up`
+- Start (rebuild): `docker compose -f .docker-compose.yml up --build`
+- Stop: `docker compose -f .docker-compose.yml down`
 
-Result: works with the correct `-f` path; `web` maps port 5173.
+Result: works with the root `.docker-compose.yml`; the `web` service maps port 5173.
 
-Evaluation: document the `-f docker/docker-compose.dev.yml` flag.
+Evaluation: document the `-f .docker-compose.yml` flag (matches README). Make wrappers are also
+available: `make docker`, `make docker-stop`, `make docker-logs`, `make docker-shell`.
 
 ### Iteration 8: Formatting and Housekeeping
 

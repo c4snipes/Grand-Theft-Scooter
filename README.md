@@ -27,7 +27,7 @@
 make start        # Installs deps + starts dev server
 
 # Option 2: Docker (no Node.js needed locally)
-make docker       # or: docker compose up
+make docker       # or: docker compose -f .docker-compose.yml up
 
 # Option 3: Manual
 npm ci && npm run dev
@@ -39,16 +39,23 @@ Then open [http://localhost:5173](http://localhost:5173) in your browser!
 
 To set up the project locally, ensure you have the following installed:
 
-- Node.js 18 or newer (Node 20.x is preferred). npm ships with Node; Windows users can grab the installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen PowerShell/Git Bash afterward.
+- Node.js 18 or newer (Node 20.x is preferred). npm ships with Node; Windows users can grab the
+  installer from [nodejs.org](https://nodejs.org), leave the "Add to PATH" box checked, then reopen
+  PowerShell/Git Bash afterward.
 - Optional: Python 3 for asset verification
-- Optional: Docker Desktop (Windows/macOS) or Docker Engine (Linux) for containerized workflows and asset optimization
-- Optional: GNU Make (pre-installed on macOS/Linux; on Windows install via [Chocolatey](https://chocolatey.org/packages/make) `choco install make`, [winget](https://learn.microsoft.com/windows/package-manager/winget/) `winget install GnuWin32.Make`, or the [MSYS2](https://www.msys2.org/) toolchain).
+- Optional: Docker Desktop (Windows/macOS) or Docker Engine (Linux) for containerized workflows and
+  asset optimization
+- Optional: GNU Make (pre-installed on macOS/Linux; on Windows install via
+  [Chocolatey](https://chocolatey.org/packages/make) `choco install make`,
+  [winget](https://learn.microsoft.com/windows/package-manager/winget/)
+  `winget install GnuWin32.Make`, or the [MSYS2](https://www.msys2.org/) toolchain).
 
 ## Setup Instructions
 
 ### Automated Setup (Recommended)
 
-**Cross-platform unified setup script** that handles dependency installation, asset verification, and optimization:
+**Cross-platform unified setup script** that handles dependency installation, asset verification,
+and optimization:
 
 #### Linux/macOS
 
@@ -59,7 +66,8 @@ To set up the project locally, ensure you have the following installed:
 ./scripts/setup.sh --help       # Show all options
 ```
 
-> `scripts/setup.sh` replaces the separate `ensure-deps.sh` and `optimize-assets.sh` helpers; use the flags above to target specific tasks.
+> `scripts/setup.sh` replaces the separate `ensure-deps.sh` and `optimize-assets.sh` helpers; use
+> the flags above to target specific tasks.
 
 #### Windows (PowerShell)
 
@@ -88,7 +96,8 @@ If you prefer to set up manually:
    npm -v
    ```
 
-   If either command is "not recognized" on Windows, open a new terminal; if it still fails, reinstall Node.js and ensure the PATH option was selected.
+   If either command is "not recognized" on Windows, open a new terminal; if it still fails,
+   reinstall Node.js and ensure the PATH option was selected.
 
 2. **Install dependencies**
 
@@ -136,7 +145,9 @@ npm run preview    # Preview production build
 
 ### Understanding Docker vs GHCR.io
 
-**Docker** is the containerization technology (build/run containers), while **GHCR.io** (GitHub Container Registry) is a storage location for Docker images - similar to Docker Hub, but integrated with GitHub:
+**Docker** is the containerization technology (build/run containers), while **GHCR.io** (GitHub
+Container Registry) is a storage location for Docker images - similar to Docker Hub, but integrated
+with GitHub:
 
 - **Docker Technology**: Tools like `docker build`, `docker run`, `docker compose`
 - **GHCR.io Registry**: Storage at `ghcr.io/c4snipes/grand-theft-scooter`
@@ -148,7 +159,7 @@ You can pull pre-built images from GHCR or build/run locally with Docker.
 
 ```bash
 # Start with docker-compose
-docker compose up
+docker compose -f .docker-compose.yml up
 # or with Make:
 make docker
 
@@ -157,20 +168,22 @@ make docker DETACH=1     # Run in background
 make docker REBUILD=1    # Force image rebuild before starting
 
 # Stop
-docker compose down
+docker compose -f .docker-compose.yml down
 # or:
 make docker-stop
 ```
 
 ### GitHub Container Registry (ghcr.io)
 
-This project automatically publishes Docker images to GitHub Container Registry when you push tags or commits to `main`.
+This project automatically publishes Docker images to GitHub Container Registry when you push tags
+or commits to `main`.
 
 **Registry location**: `ghcr.io/c4snipes/grand-theft-scooter`
 
 #### Automated Builds (GitHub Actions)
 
-Pushes to `main` or version tags (`v1.0.0`) automatically trigger builds via `.github/workflows/docker.yml`.
+Pushes to `main` or version tags (`v1.0.0`) automatically trigger builds via
+`.github/workflows/docker.yml`.
 
 #### Manual Registry Push
 
@@ -195,7 +208,8 @@ docker run --rm -p 8080:80 ghcr.io/c4snipes/grand-theft-scooter:latest
 # Open http://localhost:8080
 ```
 
-> **Note**: By default, ghcr.io images are private. To make public, go to the package settings on GitHub and change visibility.
+> **Note**: By default, ghcr.io images are private. To make public, go to the package settings on
+> GitHub and change visibility.
 
 ## Asset Management
 
@@ -241,14 +255,18 @@ The optimizer:
 Run the project without installing Node locally:
 
 ```sh
-docker compose up --build
+docker compose -f .docker-compose.yml up --build
 # Press Ctrl+C to stop the stack when finished
-docker compose down
+docker compose -f .docker-compose.yml down
 ```
 
-Make wrappers (`make docker`, `make docker-stop`, `make docker-logs`, `make docker-shell`) are available if Make is installed.
+Make wrappers (`make docker`, `make docker-stop`, `make docker-logs`, `make docker-shell`) are
+available if Make is installed.
 
-> **Can't run Docker?** No problem. Everything works with the local Node workflow (`npm ci`, `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a container for consistent environments. Only worry about Docker if your team uses it for deployment or you need parity with CI.
+> **Can't run Docker?** No problem. Everything works with the local Node workflow (`npm ci`,
+> `npm run dev`, `npm run build`). Docker is optional and just mirrors the same steps inside a
+> container for consistent environments. Only worry about Docker if your team uses it for deployment
+> or you need parity with CI.
 
 ## Everyday Commands
 
@@ -279,27 +297,48 @@ docker run --rm -p 8080:80 grand-theft-scooter
 
 ## Gameplay Overview
 
-- **Setting**: A procedurally assembled 3D shopping mall full of kiosks, displays, and crowds to weave through at high speed.
-- **Objective**: Rack up points by colliding with interactive props, food stands, benches, and other environmental objects.
-- **High-Value Targets**: Running over unsuspecting mall-goers yields the biggest score multipliers—just like a mobility-scooter take on _Hungry Shark_.
-- **Hazards**: Chase points by bowling over mall patrons riding the new character models, but colliding with security gates, maintenance barriers, cleaning robots, or the mall walls will end the run instantly.
-- **Controls**: Steer with WASD or the arrow keys. Tap `R` to open the placement guide (hold `Shift+R` for an instant safe respawn), press `C` to swap between follow and free cameras, and hit `I` to toggle the telemetry dashboard.
+- **Setting**: A procedurally assembled 3D shopping mall full of kiosks, displays, and crowds to
+  weave through at high speed.
+- **Objective**: Rack up points by colliding with interactive props, food stands, benches, and other
+  environmental objects.
+- **High-Value Targets**: Running over unsuspecting mall-goers yields the biggest score
+  multipliers—just like a mobility-scooter take on _Hungry Shark_.
+- **Hazards**: Chase points by bowling over mall patrons riding the new character models, but
+  colliding with security gates, maintenance barriers, cleaning robots, or the mall walls will end
+  the run instantly.
+- **Controls**: Steer with WASD or the arrow keys. Tap `R` to open the placement guide (hold
+  `Shift+R` for an instant safe respawn), press `C` to swap between follow and free cameras, and hit
+  `I` to toggle the telemetry dashboard.
 
 ## Troubleshooting
 
 ### General
 
-- `npm ci` fails with `Unsupported engine`: check your Node version with `node -v`; rerun `./scripts/setup.sh` (or `.\scripts\setup.ps1` on Windows) to install a compatible release.
-- `npm run dev` reports `Port 5173 is already in use`: stop other Vite/Node processes or pass `--port <new-port>` to the dev command.
-- Docker errors about `permission denied` on bind mounts: make sure the repo directory is inside your user home and that Docker Desktop/Engine has access to it.
-- `docker compose` command not found: upgrade to a recent Docker release or replace `docker compose` with `docker-compose`.
+- `npm ci` fails with `Unsupported engine`: check your Node version with `node -v`; rerun
+  `./scripts/setup.sh` (or `.\scripts\setup.ps1` on Windows) to install a compatible release.
+- `npm run dev` reports `Port 5173 is already in use`: stop other Vite/Node processes or pass
+  `--port <new-port>` to the dev command.
+- Docker errors about `permission denied` on bind mounts: make sure the repo directory is inside
+  your user home and that Docker Desktop/Engine has access to it.
+- `docker compose` command not found: upgrade to a recent Docker release or replace `docker compose`
+  with `docker-compose`.
 
 ### Windows
 
-- `'npm' is not recognized'`: Node.js is missing from PATH. Reinstall Node.js, ensure "Automatically install the necessary tools" is unchecked unless you need them, and keep the PATH option enabled. After installation, open a fresh PowerShell/Git Bash window and rerun `node -v`, or run `.\scripts\setup.ps1` to auto-install Node.js.
-- `'make' is not recognized'`: Install GNU Make (see the Prerequisites section) or use the npm/Docker commands directly.
-- `npm.ps1 cannot be loaded because running scripts is disabled`: PowerShell's execution policy is blocking the shim that npm installs. Fix options:
-  1. Open PowerShell **as Administrator**, then run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force`. Close the window, reopen PowerShell normally, and re-run `npm -v`.
-  2. If you cannot change the policy permanently, run `powershell -ExecutionPolicy Bypass` (or `Set-ExecutionPolicy -Scope Process Bypass`) before invoking npm commands in that session.
-  3. As a last resort, skip the PowerShell script entirely by calling the CMD shim (`npm.cmd run dev`, `npx.cmd vite`, etc.).
-     You can inspect current policy settings with `Get-ExecutionPolicy -List`. Corporate machines may have policies locked; in that case stick with option 2 or 3 above.
+- `'npm' is not recognized'`: Node.js is missing from PATH. Reinstall Node.js, ensure "Automatically
+  install the necessary tools" is unchecked unless you need them, and keep the PATH option enabled.
+  After installation, open a fresh PowerShell/Git Bash window and rerun `node -v`, or run
+  `.\scripts\setup.ps1` to auto-install Node.js.
+- `'make' is not recognized'`: Install GNU Make (see the Prerequisites section) or use the
+  npm/Docker commands directly.
+- `npm.ps1 cannot be loaded because running scripts is disabled`: PowerShell's execution policy is
+  blocking the shim that npm installs. Fix options:
+  1. Open PowerShell **as Administrator**, then run
+     `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force`. Close the window, reopen
+     PowerShell normally, and re-run `npm -v`.
+  2. If you cannot change the policy permanently, run `powershell -ExecutionPolicy Bypass` (or
+     `Set-ExecutionPolicy -Scope Process Bypass`) before invoking npm commands in that session.
+  3. As a last resort, skip the PowerShell script entirely by calling the CMD shim
+     (`npm.cmd run dev`, `npx.cmd vite`, etc.). You can inspect current policy settings with
+     `Get-ExecutionPolicy -List`. Corporate machines may have policies locked; in that case stick
+     with option 2 or 3 above.
