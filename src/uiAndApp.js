@@ -9,9 +9,7 @@ import {
   assertDefined,
   invariant,
   createGameLoop,
-  audioManager,
   scoringSystem,
-  getCollisionType,
 } from './coreAndSystems.js';
 import {
   createMall,
@@ -1004,7 +1002,7 @@ export async function startGame(canvas) {
       typeof scoreboard.updateTelemetry === 'function' &&
       typeof scoreboard.setMessage === 'function' &&
       typeof scoreboard.toggleDashboard === 'function',
-    'createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard().'
+    'createScoreboard must return an object with updateTelemetry(), setMessage(), and toggleDashboard().' 
   );
   scoringSystem.setCallbacks({
     onScoreUpdate: (score, points, details) => {
@@ -1036,6 +1034,23 @@ export async function startGame(canvas) {
     hazards: 0,
     runtime: 0,
     status: 'Ready',
+  });
+
+  scoringSystem.setCallbacks({
+    onScoreUpdate: (score, points, breakdown) => {
+      scoreboard.updateTelemetry({ score });
+      scoreboard.setMessage(`+${points} ${breakdown.targetLabel}`, {
+        duration: 1500,
+      });
+    },
+    onComboUpdate: (combo, increased) => {
+      if (increased && combo >= 3) {
+        scoreboard.setMessage(`${combo}x COMBO!`, { duration: 1200 });
+      }
+    },
+    onSpecialBonus: (message, bonus) => {
+      scoreboard.setMessage(`${message} +${bonus}`, { duration: 2000 });
+    },
   });
 
   const resetButton = document.querySelector('[data-reset]');
@@ -1380,8 +1395,6 @@ export async function startGame(canvas) {
     if (!hit || isGameOver) return;
 
     if (hit.kind === 'fatal') {
-      // Play crash sound
-      audioManager.playCollisionSound(1.0, 'metal');
       triggerGameOver(hit.label);
       return;
     }
@@ -1392,11 +1405,6 @@ export async function startGame(canvas) {
       // Use enhanced scoring system
       const currentSpeed = scooter.body.velocity.length();
       scoringSystem.awardPoints(hit.label, currentSpeed);
-
-      // Play collision sound based on target type (optimized with type flags)
-      const soundType = getCollisionType(hit.label);
-      const intensity = Math.min(1.0, currentSpeed / 15);
-      audioManager.playCollisionSound(intensity, soundType);
 
       // Monitor performance improvements
       performanceMonitor.recordCollision(hit.label, {
@@ -1423,11 +1431,6 @@ export async function startGame(canvas) {
       applyDriveForce(driveInput);
       applySteering(steerInput, delta);
 
-      // Update engine sound based on throttle and speed
-      if (audioInitialized) {
-        const throttle = Math.abs(driveInput);
-        audioManager.updateEngineSound(currentSpeed, throttle);
-      }
     }
 
     stepPhysics(world, delta);
@@ -1508,9 +1511,6 @@ export async function startGame(canvas) {
     } catch (_) {}
     try {
       orbitControls?.dispose?.();
-    } catch (_) {}
-    try {
-      audioManager?.dispose?.();
     } catch (_) {}
     try {
       scoringSystem?.dispose?.();
