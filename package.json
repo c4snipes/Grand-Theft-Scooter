@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
-    "newrelic": "^13.5.0",
+    "newrelic": "^13.6.0",
     "three": "^0.180.0"
   },
   "devDependencies": {
