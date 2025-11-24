@@ -15,7 +15,7 @@
   "dependencies": {
     "cannon-es": "^0.20.0",
     "newrelic": "^13.5.0",
-    "three": "^0.180.0"
+    "three": "^0.181.2"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.2.1",
