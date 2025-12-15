@@ -49,7 +49,7 @@ jobs:
 
       # Upload SARIF results for further inspection (optional)
       - name: Upload CodeQL SARIF results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: codeql-sarif-results
           path: /home/runner/work/_temp/codeql_databases/**/results/*.sarif
