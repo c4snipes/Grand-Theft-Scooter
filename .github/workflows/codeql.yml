@@ -32,7 +32,7 @@ jobs:
 
       # Using github/codeql-action/init@v4 for compatibility with current CodeQL workflows.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@16140ae1a102900babc80a33c44059580f687047
+        uses: github/codeql-action/init@1b168cd39490f61582a9beae412bb7057a6b2c4e
         with:
           languages: ${{ matrix.language }}
 
@@ -55,4 +55,4 @@ jobs:
           path: /home/runner/work/_temp/codeql_databases/**/results/*.sarif
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@16140ae1a102900babc80a33c44059580f687047
+        uses: github/codeql-action/analyze@1b168cd39490f61582a9beae412bb7057a6b2c4e
